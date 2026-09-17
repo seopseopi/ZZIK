@@ -8,7 +8,7 @@ test('album settings, analysis recovery, photo deletion and member exit stay con
   page.setDefaultTimeout(15_000);
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  const memberContext = await browser.newContext({ baseURL: 'http://127.0.0.1:5173', viewport: { width: 1440, height: 1000 } });
+  const memberContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL as string, viewport: { width: 1440, height: 1000 } });
   const memberPage = await memberContext.newPage();
   memberPage.setDefaultTimeout(15_000);
   let albumId = '';

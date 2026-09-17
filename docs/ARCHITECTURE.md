@@ -2,7 +2,7 @@
 
 ## 실행 경계
 
-브라우저의 React·TypeScript·TanStack Query 앱은 `/api`만 호출한다. 개발 중 Vite가 FastAPI로 프록시하고, Compose에서는 Nginx가 정적 파일과 API 프록시를 담당한다. FastAPI와 별도 worker가 같은 PostgreSQL·파일 저장소를 사용한다. 원격 Git push나 AWS 리소스 생성은 실행하지 않았다.
+브라우저의 React·TypeScript·TanStack Query 앱은 `/api`만 호출한다. 개발 중 Vite가 FastAPI로 프록시하고, Compose에서는 Nginx가 정적 파일과 API 프록시를 담당한다. FastAPI와 별도 worker가 같은 PostgreSQL·파일 저장소를 사용한다. GitHub 저장소와 Pages 체험판은 공개되어 있다. Pages는 별도 브라우저 저장 모드이며 이 서버 구성의 AWS 배포는 아직 실행하지 않았다. 팀별 경계와 조립 방법은 [해커톤 작업 기반](hackathon/README.md)에 정리했다.
 
 ```mermaid
 flowchart LR

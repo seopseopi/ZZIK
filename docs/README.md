@@ -1,6 +1,8 @@
 # 찍 · 문서
 
 - [사용 가이드](DEMO_GUIDE.md): 앨범·인물·보정·승인 시연
+- [팀별 구현·조립](hackathon/README.md): 5명 역할, M01~M17 프롬프트, 계약·통합 검사
+- [서비스 완성 계획](COMPLETION_ROADMAP.md): 실환경 검증과 starter까지의 남은 단계
 - [개발 환경](DEVELOPMENT.md): 설치, 개별 실행, 환경변수와 검사
 - [설계](ARCHITECTURE.md): 데이터, 분석 작업, 보정과 승인
 - [API 계약](API_CONTRACT.md): 서버 요청과 권한

@@ -1,0 +1,745 @@
+{
+  "version": 1,
+  "source": "docs/hackathon/source/TEAM_SPEC.md",
+  "reference_commit": "d06ca14",
+  "roles": [
+    {
+      "id": 1,
+      "title": "AWS 인프라·배포",
+      "prompt": "docs/hackathon/roles/01-infra.md",
+      "files": [
+        "infra/nginx.conf",
+        "infra/backend.Dockerfile",
+        "infra/frontend.Dockerfile",
+        "compose.yaml",
+        "docs/AWS_DEPLOYMENT.md"
+      ],
+      "instructions": [
+        "Web→App→RDS 연결과 private S3·IAM 역할·HTTPS를 담당한다. API와 worker를 각각 실행하고 동일 배포 버전·환경을 적용한다.",
+        "계정·리전·기존 리소스·예산이 확정되기 전에는 배포 파일과 검증 절차까지만 작성한다. 실제 AWS 호출·생성 결과를 로컬 실행으로 대체하지 않는다.",
+        "반영한 커밋, 마이그레이션 revision, 헬스 체크, 업로드·분석·다운로드 결과, 복구·정리 방법을 2/3번에게 전달한다."
+      ]
+    },
+    {
+      "id": 2,
+      "title": "프론트·UI 통합",
+      "prompt": "docs/hackathon/roles/02-frontend.md",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/styles.css",
+        "frontend/src/Upload.tsx",
+        "frontend/src/People.tsx",
+        "frontend/src/AlbumSettings.tsx",
+        "frontend/src/AnalysisStatus.tsx",
+        "frontend/src/api.ts",
+        "frontend/src/types.ts"
+      ],
+      "instructions": [
+        "앨범·등록·업로드·갤러리·필터·상세·분석 상태를 실제 API와 연결하고 5번의 보정 화면을 통합한다.",
+        "기존 PC 파란색·모바일 코랄색 디자인과 찍 이름을 유지한다. 큰 장식 문구를 추가하지 않는다. 오류·빈 결과·로딩과 모바일 조작을 유지한다.",
+        "API 변경은 3번과 맞추고, 5번은 Editor 내부를 담당한다. GitHub Pages 체험 API의 성공을 실제 서비스 연결로 보고하지 않는다."
+      ]
+    },
+    {
+      "id": 3,
+      "title": "백엔드·DB·통합",
+      "prompt": "docs/hackathon/roles/03-backend.md",
+      "files": [
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "backend/app/schemas.py",
+        "backend/app/services.py",
+        "backend/app/db.py",
+        "backend/app/config.py",
+        "backend/app/storage.py",
+        "backend/app/worker.py",
+        "backend/alembic/env.py",
+        "docs/API_CONTRACT.md"
+      ],
+      "instructions": [
+        "인증·앨범 권한·DB·API·저장·작업 상태를 담당하며 4번 분석과 5번 버전/승인 코드를 통합한다.",
+        "공유 모델·마이그레이션·OpenAPI의 통합 담당이다. 요청/응답 필드·에러·ID·상태를 임의 변경하지 않는다. 인물/계정 변경과 승인 무효화의 트랜잭션을 유지한다.",
+        "4번 결과를 저장하고 worker가 작업을 실행한다. 분석 모듈이 임의로 HTTP나 DB를 새로 소유하게 하지 않는다. 저장 및 외부 객체 정리 책임을 명확히 한다."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Vision AI·인물·추천",
+      "prompt": "docs/hackathon/roles/04-vision.md",
+      "files": [
+        "backend/app/analysis.py",
+        "backend/app/grouping.py",
+        "backend/app/image_service.py",
+        "backend/fixtures/manifest.json",
+        "backend/tests/test_analysis_worker.py"
+      ],
+      "instructions": [
+        "기준 얼굴 검사, 모든 얼굴의 매칭, 장면 태그, EXIF/GPS, 품질·유사 그룹·추천 결과를 구조화하여 3번에 전달한다.",
+        "미확정·얼굴 없음·오류를 구분하고 실제 AWS 실패를 fixture 성공으로 대체하지 않는다. 그룹은 앨범 범위로 격리한다.",
+        "image_service.py의 메타데이터/품질 영역을 맡는다. 렌더링 영역을 변경할 때 5번과 계약을 먼저 맞춘다. 정확도·속도·비용은 실사진 측정 결과로만 기록한다."
+      ]
+    },
+    {
+      "id": 5,
+      "title": "보정·버전·승인",
+      "prompt": "docs/hackathon/roles/05-editing.md",
+      "files": [
+        "frontend/src/Editor.tsx",
+        "frontend/src/Editor.css",
+        "backend/app/image_service.py",
+        "backend/tests/test_image_rendering.py"
+      ],
+      "instructions": [
+        "원본 기반 밝기·채도·비교·이력·다운로드와 버전별 승인·취소·최종본 흐름을 담당한다.",
+        "서버/model 변경은 3번과, 공통 화면/API 타입은 2번과 통합한다. 화면에 Git 용어 대신 새 보정본·이전 버전·확인 요청을 쓴다.",
+        "확인된 등장 멤버 전원 승인 규칙과 승인 대상 스냅샷을 유지한다. contrast/crop/warm filter 예시는 현재 미구현이며 별도 범위 확정 없이 완료로 표시하지 않는다."
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "M01",
+      "title": "3-Tier 기본 연결",
+      "phase": 1,
+      "priority": "P0",
+      "owner": 1,
+      "collaborators": [
+        3
+      ],
+      "depends_on": [],
+      "prompt": "docs/hackathon/tasks/M01.md",
+      "files": [
+        "compose.yaml",
+        "infra/nginx.conf",
+        "backend/app/db.py",
+        "backend/app/main.py",
+        "docs/AWS_DEPLOYMENT.md"
+      ],
+      "endpoints": [
+        "GET /api/health/live",
+        "GET /api/health/ready"
+      ],
+      "goal": "Web→FastAPI→DB 및 별도 worker를 구성하고 각 실행 모드의 검증 상태를 구분한다.",
+      "acceptance": [
+        "새 checkout에서 마이그레이션 후 readiness 통과",
+        "Web만 외부 진입점이며 App·DB 접근 범위를 문서화",
+        "AWS 완료는 실제 Web/App/RDS 경유 요청으로 증명; 로컬/Docker 성공과 별도 표시"
+      ],
+      "validation": [
+        ".venv/bin/python scripts/check_harness.py",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "로컬 연결 검증됨; Docker·AWS 3-Tier 실배포 미검증",
+      "external_evidence": "계정·리전·예산·리소스 및 HTTPS 설정 필요. 실제 연결 기록과 배포 커밋을 남긴다."
+    },
+    {
+      "id": "M02",
+      "title": "앨범 생성·목록·초대",
+      "phase": 1,
+      "priority": "P0",
+      "owner": 3,
+      "collaborators": [
+        2
+      ],
+      "depends_on": [
+        "M01"
+      ],
+      "prompt": "docs/hackathon/tasks/M02.md",
+      "files": [
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "backend/app/services.py",
+        "frontend/src/App.tsx"
+      ],
+      "endpoints": [
+        "POST /api/auth/register",
+        "GET /api/auth/me",
+        "POST /api/albums",
+        "GET /api/albums",
+        "POST /api/albums/join"
+      ],
+      "goal": "인증된 사용자가 앨범을 생성하고 초대코드로 같은 앨범에 참여한다.",
+      "acceptance": [
+        "두 세션에서 생성·참여·동일 앨범 조회",
+        "미참여 사용자의 사진 접근 거부",
+        "새로고침 후 이름·멤버·권한 유지"
+      ],
+      "validation": [
+        ".venv/bin/python scripts/check_harness.py",
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "구현·로컬 검증됨; AWS 통합 증거 필요",
+      "external_evidence": ""
+    },
+    {
+      "id": "M03",
+      "title": "기준 인물 등록",
+      "phase": 1,
+      "priority": "P0",
+      "owner": 4,
+      "collaborators": [
+        3,
+        2
+      ],
+      "depends_on": [
+        "M02"
+      ],
+      "prompt": "docs/hackathon/tasks/M03.md",
+      "files": [
+        "backend/app/analysis.py",
+        "backend/app/main.py",
+        "frontend/src/People.tsx"
+      ],
+      "endpoints": [
+        "POST /api/albums/{album_id}/people",
+        "POST /api/people/{person_id}/accept-link"
+      ],
+      "goal": "기준 얼굴 한 명을 검증하고 인물과 사용자 계정을 명시적으로 연결한다.",
+      "acceptance": [
+        "얼굴 없음·여러 얼굴·정상 한 얼굴 구분",
+        "다른 계정 연결은 대상의 수락 후 확정",
+        "참조 사진 삭제와 연결 해제 영향 검증"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_analysis_worker.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)"
+      ],
+      "current_status": "fixture·모의 AWS 검증됨; 실제 얼굴 검사 미검증",
+      "external_evidence": "허가된 기준 사진과 Rekognition 연결로 실패/성공 사례를 기록한다."
+    },
+    {
+      "id": "M04",
+      "title": "사진 다중 업로드·S3 저장",
+      "phase": 2,
+      "priority": "P0",
+      "owner": 3,
+      "collaborators": [
+        1,
+        2
+      ],
+      "depends_on": [
+        "M02",
+        "M03"
+      ],
+      "prompt": "docs/hackathon/tasks/M04.md",
+      "files": [
+        "backend/app/main.py",
+        "backend/app/storage.py",
+        "backend/app/worker.py",
+        "frontend/src/Upload.tsx"
+      ],
+      "endpoints": [
+        "POST /api/albums/{album_id}/photos",
+        "GET /api/albums/{album_id}/analysis-status"
+      ],
+      "goal": "원본을 저장하고 영속 분석 작업을 만들며 파일별 성공·실패를 보여준다.",
+      "acceptance": [
+        "JPEG/PNG 검증과 미지원 파일 분리",
+        "같은 request_id 재시도 중복 없음; 부분 저장 실패 정리",
+        "원본 해시 보존·비공개 S3 권한·재시작 후 파일 유지"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "로컬 저장·다중 업로드 검증됨; S3 실연동 미검증",
+      "external_evidence": "S3 객체 저장·다운로드·삭제와 재시작 후 접근을 실제 버킷에서 확인한다."
+    },
+    {
+      "id": "M05",
+      "title": "다중 얼굴 분석·분류",
+      "phase": 2,
+      "priority": "P0",
+      "owner": 4,
+      "collaborators": [
+        3
+      ],
+      "depends_on": [
+        "M03",
+        "M04"
+      ],
+      "prompt": "docs/hackathon/tasks/M05.md",
+      "files": [
+        "backend/app/analysis.py",
+        "backend/app/worker.py",
+        "backend/fixtures/manifest.json"
+      ],
+      "endpoints": [
+        "POST /api/photos/{photo_id}/reanalyze",
+        "GET /api/albums/{album_id}/analysis-status"
+      ],
+      "goal": "모든 얼굴을 기준 인물에 연결하고 분석 상태·미확정·오류를 저장한다.",
+      "acceptance": [
+        "A+B가 둘의 필터에 함께 표시; 얼굴 수와 인물 ID 구분",
+        "얼굴 없음·미등록·애매한 매칭을 구분하고 실패를 숨기지 않음",
+        "worker 중단 복구·제한 재시도·이전 작업의 늦은 결과 차단"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_analysis_worker.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "fixture·모의 응답·worker 검증됨; 실제 인물 정확도 미검증",
+      "external_evidence": "실제 사진별 정답/예측/누락/오매칭/처리시간/호출 수를 기록한다."
+    },
+    {
+      "id": "M06",
+      "title": "인물별 갤러리",
+      "phase": 2,
+      "priority": "P0",
+      "owner": 2,
+      "collaborators": [
+        3,
+        4
+      ],
+      "depends_on": [
+        "M05"
+      ],
+      "prompt": "docs/hackathon/tasks/M06.md",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/types.ts",
+        "backend/app/main.py"
+      ],
+      "endpoints": [
+        "GET /api/albums/{album_id}/photos"
+      ],
+      "goal": "내 사진·단체·얼굴 미검출·인물 조합을 서버 필터로 제공한다.",
+      "acceptance": [
+        "mine와 혼자/함께 조건 동시 적용",
+        "여러 인물 AND/OR 및 페이지네이션의 total 일치",
+        "모바일/PC 빈 결과·로딩·실패와 이미지 경로 정상"
+      ],
+      "validation": [
+        "npm --prefix frontend run build",
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "구현·로컬 검증됨; 실제 분석 결과와 연결 검증 필요",
+      "external_evidence": ""
+    },
+    {
+      "id": "M07",
+      "title": "사진 상세·원본 다운로드",
+      "phase": 2,
+      "priority": "P0",
+      "owner": 2,
+      "collaborators": [
+        3,
+        1
+      ],
+      "depends_on": [
+        "M06"
+      ],
+      "prompt": "docs/hackathon/tasks/M07.md",
+      "files": [
+        "frontend/src/App.tsx",
+        "backend/app/main.py",
+        "backend/app/storage.py"
+      ],
+      "endpoints": [
+        "GET /api/photos/{photo_id}",
+        "GET /api/photos/{photo_id}/download",
+        "GET /api/albums/{album_id}/download"
+      ],
+      "goal": "권한 있는 멤버가 상세 정보를 보고 원본·선택 ZIP을 내려받는다.",
+      "acceptance": [
+        "다운로드 원본 SHA-256이 업로드와 동일",
+        "미참여 계정·다른 앨범 ID 접근 차단",
+        "S3 서명 URL은 만료하며 실제 촬영/위치 정보 없는 경우 미상 표시"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "로컬 원본/ZIP 검증됨; S3 서명 URL 실검증 필요",
+      "external_evidence": ""
+    },
+    {
+      "id": "M08",
+      "title": "오분류 수동 수정",
+      "phase": 2,
+      "priority": "P0",
+      "owner": 3,
+      "collaborators": [
+        2,
+        4,
+        5
+      ],
+      "depends_on": [
+        "M06",
+        "M07"
+      ],
+      "prompt": "docs/hackathon/tasks/M08.md",
+      "files": [
+        "backend/app/main.py",
+        "backend/app/services.py",
+        "frontend/src/Editor.tsx"
+      ],
+      "endpoints": [
+        "PUT /api/photos/{photo_id}/people"
+      ],
+      "goal": "인물을 직접 추가·제외하고 재분석 및 기존 승인과 일관성을 유지한다.",
+      "acceptance": [
+        "수동 추가/제외가 재분석 후 유지",
+        "다른 앨범 인물 입력 거부",
+        "등장 멤버 변경 시 기존 최종본 해제와 재검토"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python -m pytest -q backend/tests/test_analysis_worker.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "구현·로컬 검증됨",
+      "external_evidence": ""
+    },
+    {
+      "id": "M09",
+      "title": "기본 보정·버전 저장",
+      "phase": 3,
+      "priority": "P2",
+      "owner": 5,
+      "collaborators": [
+        2,
+        3
+      ],
+      "depends_on": [
+        "M07",
+        "M08"
+      ],
+      "prompt": "docs/hackathon/tasks/M09.md",
+      "files": [
+        "frontend/src/Editor.tsx",
+        "frontend/src/Editor.css",
+        "backend/app/image_service.py",
+        "backend/app/main.py"
+      ],
+      "endpoints": [
+        "POST /api/photos/{photo_id}/preview",
+        "POST /api/photos/{photo_id}/versions"
+      ],
+      "goal": "원본 기반 밝기·채도 미리보기와 전체 설정을 가진 새 버전을 저장한다.",
+      "acceptance": [
+        "보정 전후 원본 바이트 동일",
+        "미리보기와 내보내기의 방향·색상 처리 규칙 일치",
+        "이전 비동기 미리보기가 최신 설정을 덮지 않음"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_image_rendering.py",
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "밝기·채도 구현·검증됨; 대비/자르기/웜 필터 미구현",
+      "external_evidence": ""
+    },
+    {
+      "id": "M10",
+      "title": "버전 이력·비교",
+      "phase": 3,
+      "priority": "P2",
+      "owner": 5,
+      "collaborators": [
+        2,
+        3
+      ],
+      "depends_on": [
+        "M09"
+      ],
+      "prompt": "docs/hackathon/tasks/M10.md",
+      "files": [
+        "frontend/src/Editor.tsx",
+        "frontend/src/Editor.css",
+        "backend/app/models.py",
+        "backend/app/main.py"
+      ],
+      "endpoints": [
+        "GET /api/photos/{photo_id}/versions"
+      ],
+      "goal": "기존 버전을 보존하고 이전 버전에서 분기·비교할 수 있게 한다.",
+      "acceptance": [
+        "부모 버전·작성자·시각·전체 보정값 저장",
+        "다른 사진의 부모 버전 거부",
+        "새로고침 후 보정값 재현·슬라이더 비교·모바일 조작"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_image_rendering.py",
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "구현·로컬 검증됨",
+      "external_evidence": ""
+    },
+    {
+      "id": "M11",
+      "title": "승인·최종본",
+      "phase": 3,
+      "priority": "P2",
+      "owner": 5,
+      "collaborators": [
+        3,
+        2
+      ],
+      "depends_on": [
+        "M08",
+        "M10"
+      ],
+      "prompt": "docs/hackathon/tasks/M11.md",
+      "files": [
+        "backend/app/main.py",
+        "backend/app/services.py",
+        "backend/app/models.py",
+        "frontend/src/Editor.tsx"
+      ],
+      "endpoints": [
+        "POST /api/versions/{version_id}/request-review",
+        "POST /api/versions/{version_id}/approval",
+        "DELETE /api/versions/{version_id}/approval",
+        "POST /api/versions/{version_id}/final"
+      ],
+      "goal": "확인된 등장 멤버 전원 승인으로 버전 하나를 최종본으로 지정한다.",
+      "acceptance": [
+        "새 버전은 승인 0; 미연결 인물은 요청 차단",
+        "동시/중복 승인·취소에도 승인 수/최종본 일관",
+        "대상 변경·탈퇴·승인 취소 시 재검토·최종 해제"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "두 계정·동시성·로컬 검증됨; AWS의 서로 다른 기기 검증 필요",
+      "external_evidence": ""
+    },
+    {
+      "id": "M12",
+      "title": "보정 이미지 내보내기",
+      "phase": 3,
+      "priority": "P2",
+      "owner": 5,
+      "collaborators": [
+        3,
+        1
+      ],
+      "depends_on": [
+        "M11"
+      ],
+      "prompt": "docs/hackathon/tasks/M12.md",
+      "files": [
+        "backend/app/image_service.py",
+        "backend/app/storage.py",
+        "backend/app/main.py",
+        "frontend/src/Editor.tsx"
+      ],
+      "endpoints": [
+        "GET /api/versions/{version_id}/file",
+        "GET /api/photos/{photo_id}/download"
+      ],
+      "goal": "승인한 버전 ID의 설정을 원본에 적용해 원본 해상도 결과를 내려준다.",
+      "acceptance": [
+        "원본/선택 버전/최종본을 구분",
+        "캐시 키에 원본 해시·전체 설정·렌더러 버전 포함",
+        "승인한 버전과 다운로드한 버전 일치; JPEG 손실을 무손실로 설명하지 않음"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_image_rendering.py",
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "서버 렌더·다운로드 로컬 검증됨",
+      "external_evidence": ""
+    },
+    {
+      "id": "M13",
+      "title": "장면·촬영일·장소",
+      "phase": 4,
+      "priority": "P1",
+      "owner": 4,
+      "collaborators": [
+        3,
+        2
+      ],
+      "depends_on": [
+        "M05",
+        "M08"
+      ],
+      "prompt": "docs/hackathon/tasks/M13.md",
+      "files": [
+        "backend/app/analysis.py",
+        "backend/app/image_service.py",
+        "backend/app/worker.py",
+        "frontend/src/App.tsx"
+      ],
+      "endpoints": [
+        "GET /api/albums/{album_id}/photos",
+        "GET /api/photos/{photo_id}"
+      ],
+      "goal": "실제 장면 태그와 EXIF를 저장하고 출처가 있는 장소 정보만 제공한다.",
+      "acceptance": [
+        "태그가 서버 필터와 연결",
+        "EXIF 시각/시간대와 업로드 시각 구분",
+        "GPS 없는 사진에 장소명 생성 금지; 외부 조회 실패 시 좌표 보존"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_analysis_worker.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python -m pytest -q backend/tests/test_image_rendering.py",
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)"
+      ],
+      "current_status": "EXIF/태그 필터 구현됨; 실제 라벨·역지오코딩 미검증",
+      "external_evidence": "Rekognition 라벨과 설정한 역지오코딩으로 실사진 결과 확인."
+    },
+    {
+      "id": "M14",
+      "title": "유사 그룹·Best Shot",
+      "phase": 4,
+      "priority": "P1",
+      "owner": 4,
+      "collaborators": [
+        3,
+        2
+      ],
+      "depends_on": [
+        "M13"
+      ],
+      "prompt": "docs/hackathon/tasks/M14.md",
+      "files": [
+        "backend/app/image_service.py",
+        "backend/app/analysis.py",
+        "backend/app/main.py",
+        "frontend/src/App.tsx"
+      ],
+      "endpoints": [
+        "GET /api/albums/{album_id}/recommendations"
+      ],
+      "goal": "비슷한 순간의 사진 안에서 품질 신호를 비교하고 이유를 보여준다.",
+      "acceptance": [
+        "촬영 시각+시각 유사도로 묶고 메타데이터 없으면 보수적으로 처리",
+        "동일 전처리 그룹 안에서 흔들림/노출/눈 감음 등 관측 신호 비교",
+        "추천이 원본을 삭제하지 않으며 실측 없는 0.91 같은 점수를 사실로 표시하지 않음"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_image_rendering.py",
+        ".venv/bin/python -m pytest -q backend/tests/test_analysis_worker.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)"
+      ],
+      "current_status": "알고리즘·단위 검증됨; 실사진 추천 품질 미검증",
+      "external_evidence": "실제 연사/저조도/눈 감음 사진으로 후보 그룹과 추천 이유를 평가한다."
+    },
+    {
+      "id": "M15",
+      "title": "등록 없는 얼굴 그룹",
+      "phase": 4,
+      "priority": "P3",
+      "owner": 4,
+      "collaborators": [
+        3,
+        2
+      ],
+      "depends_on": [
+        "M05",
+        "M08"
+      ],
+      "prompt": "docs/hackathon/tasks/M15.md",
+      "files": [
+        "backend/app/grouping.py",
+        "backend/app/analysis.py",
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "frontend/src/App.tsx"
+      ],
+      "endpoints": [
+        "POST /api/albums/{album_id}/face-groups/analyze",
+        "POST /api/face-groups/merge",
+        "POST /api/face-groups/{group_id}/split"
+      ],
+      "goal": "앨범 내부 얼굴을 묶고 사람이 병합·분리·계정 연결을 바로잡는다.",
+      "acceptance": [
+        "사진 속 모든 얼굴 처리, 자기 매칭 제외",
+        "앨범 검색 범위 격리·기존 수동 분리 보존",
+        "그룹 인물 변경 시 승인 재검토·외부 얼굴 삭제 재시도"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_analysis_worker.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)"
+      ],
+      "current_status": "모의 AWS/DB 검증됨; 실제 컬렉션 동작 미검증",
+      "external_evidence": "실제 Rekognition 컬렉션에서 생성·모든 얼굴 검색·삭제·재시도 확인."
+    },
+    {
+      "id": "M16",
+      "title": "한국어 사진 검색",
+      "phase": 4,
+      "priority": "P3",
+      "owner": 4,
+      "collaborators": [
+        2,
+        3
+      ],
+      "depends_on": [
+        "M06",
+        "M13"
+      ],
+      "prompt": "docs/hackathon/tasks/M16.md",
+      "files": [
+        "backend/app/main.py",
+        "frontend/src/App.tsx",
+        "docs/API_CONTRACT.md"
+      ],
+      "endpoints": [
+        "GET /api/albums/{album_id}/photos"
+      ],
+      "goal": "지원하는 인물·태그·날짜 조합을 명확히 하고 앨범 권한 안에서 검색한다.",
+      "acceptance": [
+        "이름/태그/날짜 지원 문법과 미지원 사례 문서화",
+        "앨범 시간대와 확인된 촬영 시각으로 날짜 조건 해석",
+        "키워드 조합을 의미 검색이라고 표시하지 않음; 결과는 현재 앨범에 한정"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "제한된 이름·태그·날짜 검색 구현됨; 의미 기반 AI 검색 미구현",
+      "external_evidence": ""
+    },
+    {
+      "id": "M17",
+      "title": "분기·라벨·댓글·보드·알림",
+      "phase": 4,
+      "priority": "P3",
+      "owner": 5,
+      "collaborators": [
+        2,
+        3
+      ],
+      "depends_on": [
+        "M10",
+        "M11"
+      ],
+      "prompt": "docs/hackathon/tasks/M17.md",
+      "files": [
+        "backend/app/main.py",
+        "backend/app/services.py",
+        "backend/app/models.py",
+        "frontend/src/App.tsx",
+        "frontend/src/Editor.tsx"
+      ],
+      "endpoints": [
+        "POST /api/versions/{version_id}/comments",
+        "GET /api/albums/{album_id}/board",
+        "GET /api/notifications",
+        "POST /api/notifications/{notification_id}/read"
+      ],
+      "goal": "보정과 승인에서 파생되는 협업 상태를 일관되게 제공한다.",
+      "acceptance": [
+        "버전 분기는 parent_id, 사용자 문구는 새 보정본",
+        "댓글/수정 요청/메모/목적 저장 후 유지",
+        "보드·최종본 상태 일치; 알림 실패가 보정 저장을 되돌리지 않음"
+      ],
+      "validation": [
+        ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+      ],
+      "current_status": "구현·로컬 검증됨; 운영 알림 전달·재시도 검토 필요",
+      "external_evidence": ""
+    }
+  ]
+}

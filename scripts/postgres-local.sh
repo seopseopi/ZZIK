@@ -23,3 +23,6 @@ fi
 if ! "$PG_BIN/psql" -h 127.0.0.1 -p 54329 -U moacut -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='moacut_test'" | rg -q 1; then
   "$PG_BIN/createdb" -h 127.0.0.1 -p 54329 -U moacut moacut_test
 fi
+if ! "$PG_BIN/psql" -h 127.0.0.1 -p 54329 -U moacut -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='zzik_e2e'" | rg -q 1; then
+  "$PG_BIN/createdb" -h 127.0.0.1 -p 54329 -U moacut zzik_e2e
+fi

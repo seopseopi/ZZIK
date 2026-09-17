@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "interfaces": [
+    {
+      "module": "backend.app.analysis",
+      "symbol": "analyze",
+      "parameters": [
+        "data",
+        "references",
+        "original_hash",
+        "album_id"
+      ]
+    },
+    {
+      "module": "backend.app.analysis",
+      "symbol": "validate_reference",
+      "parameters": [
+        "data",
+        "original_hash"
+      ]
+    },
+    {
+      "module": "backend.app.image_service",
+      "symbol": "inspect_image",
+      "parameters": [
+        "data",
+        "content_type"
+      ]
+    },
+    {
+      "module": "backend.app.image_service",
+      "symbol": "prepare_image",
+      "parameters": [
+        "data",
+        "max_size"
+      ]
+    },
+    {
+      "module": "backend.app.image_service",
+      "symbol": "render_image",
+      "parameters": [
+        "data",
+        "brightness",
+        "saturation",
+        "max_size"
+      ]
+    },
+    {
+      "module": "backend.app.image_service",
+      "symbol": "thumbnail_image",
+      "parameters": [
+        "data"
+      ]
+    },
+    {
+      "module": "backend.app.image_service",
+      "symbol": "quality_metrics",
+      "parameters": [
+        "data"
+      ]
+    },
+    {
+      "module": "backend.app.image_service",
+      "symbol": "similar_groups",
+      "parameters": [
+        "photos"
+      ]
+    },
+    {
+      "module": "backend.app.image_service",
+      "symbol": "render_cache_key",
+      "parameters": [
+        "original_hash",
+        "brightness",
+        "saturation",
+        "max_size"
+      ]
+    },
+    {
+      "module": "backend.app.storage",
+      "symbol": "LocalStorage.put",
+      "parameters": [
+        "key",
+        "data",
+        "content_type"
+      ]
+    },
+    {
+      "module": "backend.app.storage",
+      "symbol": "LocalStorage.get",
+      "parameters": [
+        "key"
+      ]
+    },
+    {
+      "module": "backend.app.storage",
+      "symbol": "LocalStorage.delete",
+      "parameters": [
+        "key"
+      ]
+    },
+    {
+      "module": "backend.app.storage",
+      "symbol": "LocalStorage.exists",
+      "parameters": [
+        "key"
+      ]
+    },
+    {
+      "module": "backend.app.storage",
+      "symbol": "S3Storage.put",
+      "parameters": [
+        "key",
+        "data",
+        "content_type"
+      ]
+    },
+    {
+      "module": "backend.app.storage",
+      "symbol": "S3Storage.get",
+      "parameters": [
+        "key"
+      ]
+    },
+    {
+      "module": "backend.app.storage",
+      "symbol": "S3Storage.delete",
+      "parameters": [
+        "key"
+      ]
+    },
+    {
+      "module": "backend.app.storage",
+      "symbol": "S3Storage.exists",
+      "parameters": [
+        "key"
+      ]
+    },
+    {
+      "module": "backend.app.storage",
+      "symbol": "get_storage",
+      "parameters": []
+    },
+    {
+      "module": "backend.app.grouping",
+      "symbol": "group_photo",
+      "parameters": [
+        "db",
+        "photo",
+        "data"
+      ]
+    },
+    {
+      "module": "backend.app.grouping",
+      "symbol": "sync_group_people",
+      "parameters": [
+        "db",
+        "photo_ids",
+        "force_review"
+      ]
+    },
+    {
+      "module": "backend.app.worker",
+      "symbol": "process_one",
+      "parameters": []
+    }
+  ]
+}

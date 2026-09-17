@@ -77,7 +77,7 @@ npm --prefix frontend run test:e2e
 - 단순 목적 라벨 `게시 제외`는 앨범 멤버에게 숨기는 권한 기능이 아니다.
 - Python 테스트에서 라이브러리의 TestClient/httpx·anyio 폐기 예고 경고 2개가 발생하나 실패는 없다.
 
-후속 사용자 요청으로 `seopseopi/ZZIK` 공개 저장소와 GitHub Pages 체험 사이트 배포를 준비했다. 체험은 브라우저 내부 저장으로 동작하며 Python·PostgreSQL·AWS 운영 배포와 구분한다. 유료 리소스는 생성하지 않았다. 상세 배포·체험 범위는 [DEMO_DEPLOYMENT.md](DEMO_DEPLOYMENT.md)에 기록한다.
+후속 사용자 요청으로 `seopseopi/ZZIK` 공개 저장소와 GitHub Pages 체험 사이트를 배포하고 공개 주소에서 확인했다. 체험은 브라우저 내부 저장으로 동작하며 Python·PostgreSQL·AWS 운영 배포와 구분한다. 유료 리소스는 생성하지 않았다. 상세 배포·체험 범위는 [DEMO_DEPLOYMENT.md](DEMO_DEPLOYMENT.md)에 기록한다.
 
 ## 팀원 공유용 체험 모드
 
@@ -85,3 +85,18 @@ npm --prefix frontend run test:e2e
 - 브라우저 보정·버전·승인·다운로드·업로드·초기화·새로고침 유지·방문자별 격리를 브라우저 테스트로 검증한다. 실제 자동 분석·회원가입·원격 협업을 체험 결과로 가장하지 않는다.
 - 공개 준비 후 로컬 재검증: 백엔드 **36/36(11.30초)**, 기존 서버 통합 **3/3(39.3초)**, 체험 통합 **2/2**.
 - README는 기존 Jipjangbu·XRD_Studio의 중앙 로고·배지·실제 화면·기능표·실행·문서 구조를 참고했다.
+
+
+## 해커톤 작업 기반 1단계
+
+팀원이 정리한 새 원문은 `docs/hackathon/source/TEAM_SPEC.md`로 보존했다. [팀별 구현·조립 가이드](hackathon/README.md)에 5개 역할과 M01~M17 작업 프롬프트, 공유 파일 담당, 선행 작업, 완료 조건을 작성했다. `plan.json`에서 생성한 프롬프트가 원본과 일치하는지 검사한다.
+
+- `contracts/openapi.json`: API 경로·요청 스키마 스냅샷. 현재 모든 응답에 명시적 response_model이 있는 것은 아니므로 응답 의미/프론트 타입까지 완전히 보증하지 않는다.
+- `contracts/python-interfaces.json`: 분석·이미지·저장·그룹·worker의 매개변수 이름 변경 감지. 반환값 의미는 실제 기능 검사로 확인한다.
+- `scripts/run_integration.py`: 로컬 전용 `_e2e` DB 안에 임시 스키마를 만들고, 임시 사진 폴더·동적 포트로 API/worker/web을 실행한다. 성공·실패 후 생성한 프로세스와 스키마를 정리한다.
+- Vite 프록시와 관리 E2E의 두 번째 계정도 지정한 서버 주소를 사용하도록 연결했다.
+- GitHub CI에 `integration` 작업을 추가하고 Pages 배포의 선행 검사에 포함했다. API 테스트와 브라우저 체험 검사도 유지한다.
+
+이번 변경의 로컬 검증: **백엔드 46/46(11.79초)**, **실제 서버 E2E 3/3(41.0초)**, 프론트 빌드, 계약·의존성·프롬프트 검사 통과. 백엔드에는 통합 실행기의 잘못된 DB 대상 거부 검사 10개를 추가했다. 독립 E2E의 마이그레이션·스키마 검사·seed도 통과했다. GitHub CI 결과는 해당 PR의 Checks에 기록한다.
+
+이번 단계는 코드의 도메인 분리, AWS 실검증, 대회용 starter 제작을 완료한 단계가 아니다. 원문 예시인 대비·자르기·웜 필터도 현재 미구현이다. 다음 단계와 완료 기준은 [범위](hackathon/SCOPE.md)와 [서비스 완성 계획](COMPLETION_ROADMAP.md)을 따른다.

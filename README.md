@@ -126,11 +126,17 @@ ZZIK/
 | `npm --prefix frontend run build` | TypeScript 검사와 프론트 빌드 |
 | `npm --prefix frontend run test:e2e` | 실행 중인 앱에서 두 계정·모바일 통합 검증 |
 | `.venv/bin/python -m pytest -q backend/tests` | 백엔드 검사. DB 테스트에는 전용 `TEST_DATABASE_URL` 필요 |
+| `.venv/bin/python scripts/check_harness.py` | 역할·작업 의존성·API 계약 검사 |
+| `.venv/bin/python scripts/run_integration.py` | 독립 DB·API·worker·web E2E. `ZZIK_E2E_DATABASE_URL` 필요 |
 | `.venv/bin/python scripts/check_connections.py` | DB·스키마·저장·샘플 설정 점검 |
 
-로컬 검증: **백엔드 36개, 브라우저 통합 3개 통과**, 프론트 빌드 성공. 브라우저 검증은 실제 업로드 → 보정 → 모바일 승인 → PC 최종본 지정 → 다운로드 → 승인 취소를 포함합니다. [검증 결과와 재현 조건](docs/IMPLEMENTATION_STATUS.md)
+로컬 검증: **백엔드 46개, 브라우저 통합 3개 통과**, 프론트 빌드 성공. 브라우저 검증은 실제 업로드 → 보정 → 모바일 승인 → PC 최종본 지정 → 다운로드 → 승인 취소를 포함합니다. [검증 결과와 재현 조건](docs/IMPLEMENTATION_STATUS.md)
 
 `.env`, 비밀키, 로컬 DB, 실제 업로드 파일, 로그인 세션과 로그는 저장소에 포함하지 않습니다. AWS 실연동·정확도·부하 검증은 별도이며, 현재 상태는 문서에 구분해 기록했습니다.
+
+## 팀별 개발
+
+[해커톤 조립 가이드](docs/hackathon/README.md)에 인프라·프론트·백엔드·AI·보정의 **5개 역할 프롬프트와 M01~M17 작업 프롬프트**를 정리했습니다. 역할과 이번 M 작업을 함께 읽고 기능별 PR로 통합합니다. 계약 검사와 실제 서버 E2E를 CI에서 실행하며, AWS 검증과 별도 starter 제작은 후속 단계입니다.
 
 ## 문서
 
