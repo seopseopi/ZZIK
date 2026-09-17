@@ -1,6 +1,8 @@
 """Version comments, album board, and member notifications."""
 from __future__ import annotations
 
+from .. import responses as out
+
 from ..db import get_db
 from ..dependencies import auth
 from ..models import AlbumMember, Comment, Notification, Photo
@@ -13,7 +15,7 @@ from sqlalchemy.orm import Session as DBSession
 router = APIRouter()
 
 
-@router.post('/api/versions/{version_id}/comments',status_code=201)
+@router.post('/api/versions/{version_id}/comments',status_code=201, response_model=out.VersionResponse, response_model_exclude_unset=True)
 def add_comment(version_id:str,body:CommentCreate,user=Depends(auth),db:DBSession=Depends(get_db)):
     v,p=get_version(db,version_id,user)
     text_body=body.body.strip()
@@ -24,7 +26,7 @@ def add_comment(version_id:str,body:CommentCreate,user=Depends(auth),db:DBSessio
     return version_dict(db,v,p)
 
 
-@router.get('/api/albums/{album_id}/board')
+@router.get('/api/albums/{album_id}/board', response_model=out.BoardResponse, response_model_exclude_unset=True)
 def board(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     result={status:[] for status in ['selection','editing','review','final']}
@@ -34,14 +36,14 @@ def board(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     return result
 
 
-@router.get('/api/notifications')
+@router.get('/api/notifications', response_model=out.ItemsResponse[out.NotificationResponse], response_model_exclude_unset=True)
 def notifications(user=Depends(auth),db:DBSession=Depends(get_db)):
     rows=db.scalars(select(Notification).join(AlbumMember,and_(AlbumMember.album_id==Notification.album_id,AlbumMember.user_id==user.id)).where(Notification.user_id==user.id).order_by(Notification.created_at.desc()).limit(200)).all()
     items=[{key:getattr(n,key) for key in ['id','album_id','photo_id','version_id','kind','message','read','created_at']} for n in rows]
     return {'items':items,'total':len(items)}
 
 
-@router.post('/api/notifications/{notification_id}/read')
+@router.post('/api/notifications/{notification_id}/read', response_model=out.OkResponse, response_model_exclude_unset=True)
 def read_notification(notification_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     n=db.get(Notification,notification_id)
     if not n or n.user_id!=user.id: fail(404,'NOTIFICATION_NOT_FOUND','알림을 찾을 수 없어요.')

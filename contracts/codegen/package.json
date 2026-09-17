@@ -1,0 +1,9 @@
+{
+  "name": "zzik-api-codegen",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

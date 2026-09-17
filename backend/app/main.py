@@ -3,10 +3,11 @@ import logging
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from .responses import ErrorResponse
 from .config import settings
 from .image_service import ImageError
 from .services import APIError
@@ -52,6 +53,13 @@ async def unexpected_error(_, exc):
     log.exception('Request failed',exc_info=exc)
     return JSONResponse({'code':'INTERNAL_ERROR','message':'처리하지 못했어요. 잠시 후 다시 시도해 주세요.'},status_code=500)
 
+
+@app.exception_handler(ResponseValidationError)
+async def invalid_response(request, exc):
+    # Validation errors may carry session tokens or private response values.
+    log.error('Response contract violation: %s %s (%d errors)', request.method, getattr(request.scope.get('route'), 'path', '<unknown>'), len(exc.errors()))
+    return JSONResponse({'code':'INTERNAL_ERROR','message':'처리하지 못했어요. 잠시 후 다시 시도해 주세요.'},status_code=500)
+
 for router in (system.router, auth.router, albums.router, people.router, photos.router,
                analysis.router, versions.router, collaboration.router, groups.router):
-    app.include_router(router)
+    app.include_router(router, responses={status: {"model": ErrorResponse} for status in (400, 401, 403, 404, 409, 413, 422, 500, 503)})

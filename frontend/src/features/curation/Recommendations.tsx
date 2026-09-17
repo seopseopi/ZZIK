@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { api } from "../../api";
-import type { Album, Photo } from "../../types";
+import type { Album, Recommendations as RecommendationsResponse } from "../../types";
 import { Empty, ErrorBox, Spinner } from "../../ui";
 
 export function Recommendations({
@@ -14,14 +14,7 @@ export function Recommendations({
   const data = useQuery({
     queryKey: ["recommendations", album.id],
     queryFn: () =>
-      api<{
-        groups: {
-          id: string;
-          photos: Photo[];
-          recommended_ids: string[];
-          reasons: Record<string, string[]>;
-        }[];
-      }>(`/albums/${album.id}/recommendations`),
+      api<RecommendationsResponse>(`/albums/${album.id}/recommendations`),
   });
   return (
     <section className="extension-view">

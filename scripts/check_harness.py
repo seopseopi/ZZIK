@@ -73,6 +73,7 @@ def main():
             route_sources[key] = source
     schema = app.openapi()
     schema = {**schema, 'paths': {path: operations for path, operations in schema['paths'].items() if path.startswith('/api/')}}
+    validate_response_contracts(schema)
     rendered = json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
     destination = ROOT / 'contracts/openapi.json'
     if args.write_contract:
@@ -99,6 +100,24 @@ def main():
                 raise ValueError(f'{task["id"]} must reference its route implementation: {route_sources[endpoint]}')
     print(f'Harness passed: {len(plan["roles"])} roles, {len(plan["tasks"])} tasks, dependency graph, paths, API snapshot and Python signatures.')
     print('Scope: this checks declared interfaces; real response behavior requires the server integration tests.')
+
+
+def validate_response_contracts(schema):
+    """Do not let a new endpoint silently revert to an untyped JSON response."""
+    for path, operations in schema['paths'].items():
+        for method, operation in operations.items():
+            if method not in {'get', 'post', 'put', 'patch', 'delete'}:
+                continue
+            success = [r for status, r in operation['responses'].items() if status.startswith('2')]
+            if not success:
+                raise ValueError(f'Missing success response: {method} {path}')
+            for response in success:
+                content = response.get('content', {})
+                if not content or any(not item.get('schema') for item in content.values()):
+                    raise ValueError(f'Untyped response: {method} {path}')
+            error = operation['responses'].get('422', {}).get('content', {}).get('application/json', {}).get('schema', {})
+            if error.get('$ref') != '#/components/schemas/ErrorResponse':
+                raise ValueError(f'Error envelope mismatch: {method} {path}')
 
 
 if __name__ == '__main__':

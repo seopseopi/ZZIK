@@ -1,6 +1,8 @@
 """Analysis status, retry requests, and similar-photo recommendations."""
 from __future__ import annotations
 
+from .. import responses as out
+
 from ..config import settings
 from ..db import get_db
 from ..dependencies import auth
@@ -15,7 +17,7 @@ from sqlalchemy.orm import Session as DBSession
 router = APIRouter()
 
 
-@router.post('/api/photos/{photo_id}/reanalyze')
+@router.post('/api/photos/{photo_id}/reanalyze', response_model=out.PhotoResponse, response_model_exclude_unset=True)
 def reanalyze(photo_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     p=get_photo(db,photo_id,user,lock=True)
     if p.analysis_status!='failed': fail(409,'ANALYSIS_NOT_FAILED','분석에 실패한 사진만 다시 분석할 수 있어요.')
@@ -24,7 +26,7 @@ def reanalyze(photo_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     return photo_dict(db,p)
 
 
-@router.get('/api/albums/{album_id}/analysis-status')
+@router.get('/api/albums/{album_id}/analysis-status', response_model=out.AnalysisStatusResponse, response_model_exclude_unset=True)
 def album_analysis_status(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     stats={status:0 for status in ['pending','processing','completed','failed']}
@@ -44,7 +46,7 @@ def album_analysis_status(album_id:str,user=Depends(auth),db:DBSession=Depends(g
             'oldest_pending_at':oldest_pending_at}
 
 
-@router.post('/api/albums/{album_id}/reanalyze-failed')
+@router.post('/api/albums/{album_id}/reanalyze-failed', response_model=out.QueuedResponse, response_model_exclude_unset=True)
 def reanalyze_album_failures(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     photos=db.scalars(select(Photo).where(Photo.album_id==album_id,Photo.analysis_status=='failed')
@@ -54,7 +56,7 @@ def reanalyze_album_failures(album_id:str,user=Depends(auth),db:DBSession=Depend
     return {'queued':queued}
 
 
-@router.get('/api/albums/{album_id}/recommendations')
+@router.get('/api/albums/{album_id}/recommendations', response_model=out.RecommendationsResponse, response_model_exclude_unset=True)
 def recommendations(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     photos=db.scalars(select(Photo).where(Photo.album_id==album_id).order_by(Photo.captured_at,Photo.id)).all()

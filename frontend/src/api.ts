@@ -16,6 +16,6 @@ export async function api<T = unknown>(path:string, options:RequestInit = {}):Pr
 export const post = <T=unknown>(path:string,data?:unknown) => api<T>(path,{method:'POST',body:data instanceof FormData ? data : data===undefined ? undefined : JSON.stringify(data)});
 export const patch = <T=unknown>(path:string,data:unknown) => api<T>(path,{method:'PATCH',body:JSON.stringify(data)});
 export const remove = (path:string) => api(path,{method:'DELETE'});
-export function dateLabel(value?:string) { if(!value) return '촬영 정보 없음'; return new Date(value).toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'}); }
+export function dateLabel(value?:string|null) { if(!value) return '촬영 정보 없음'; return new Date(value).toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'}); }
 export function timeLabel(value:string) { return new Date(value).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
-export function downloadPhoto(id:string, version?:string) { if(isBrowserDemo){void import('./demo/images').then(module=>module.downloadDemoPhoto(id,version)).catch(error=>alert((error as Error).message));return;} const a=document.createElement('a');a.href=`/api/photos/${id}/download${version?`?version_id=${version}`:''}`;a.download='';document.body.appendChild(a);a.click();a.remove(); }
+export function downloadPhoto(id:string, version?:string|null) { if(isBrowserDemo){void import('./demo/images').then(module=>module.downloadDemoPhoto(id,version ?? undefined)).catch(error=>alert((error as Error).message));return;} const a=document.createElement('a');a.href=`/api/photos/${id}/download${version?`?version_id=${version}`:''}`;a.download='';document.body.appendChild(a);a.click();a.remove(); }

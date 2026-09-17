@@ -14,7 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { api, ApiError, dateLabel, post } from "./api";
-import type { Album, List, User } from "./types";
+import type { Album, List, Session, Config, Notice } from "./types";
 import { Avatar, Empty, ErrorBox, Logo, Modal, Spinner } from "./ui";
 import Upload from "./Upload";
 import People from "./People";
@@ -35,19 +35,6 @@ import type { View } from "./navigation";
 
 import "./styles.css";
 
-type Config = {
-  face_provider: string;
-  storage_backend: string;
-  demo_enabled: boolean;
-};
-type Notice = {
-  id: string;
-  message: string;
-  read: boolean;
-  photo_id?: string;
-  album_id: string;
-  created_at: string;
-};
 const navItems: { id: View; label: string; icon: typeof Images }[] = [
   { id: "albums", label: "전체 앨범", icon: FolderHeart },
   { id: "all", label: "모든 사진", icon: Images },
@@ -59,7 +46,7 @@ export default function App() {
   const client = useQueryClient();
   const session = useQuery({
     queryKey: ["session"],
-    queryFn: () => api<{ user: User }>("/auth/me"),
+    queryFn: () => api<Session>("/auth/me"),
     retry: false,
   });
   const config = useQuery({

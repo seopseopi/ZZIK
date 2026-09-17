@@ -1,6 +1,9 @@
 """Reference people, account-link acceptance, and reference-image access."""
 from __future__ import annotations
 
+from .. import responses as out
+from fastapi.responses import Response as BinaryResponse
+
 from .. import storage as storage_backend
 from ..config import settings
 from ..db import get_db
@@ -25,14 +28,14 @@ def find_person(db,person_id,user,owner=False):
     return p
 
 
-@router.get('/api/albums/{album_id}/people')
+@router.get('/api/albums/{album_id}/people', response_model=out.ItemsResponse[out.PersonResponse], response_model_exclude_unset=True)
 def list_people(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     rows=db.scalars(select(Person).where(Person.album_id==album_id).order_by(Person.created_at)).all()
     return {'items':[person_dict(p) for p in rows],'total':len(rows)}
 
 
-@router.post('/api/albums/{album_id}/people',status_code=201)
+@router.post('/api/albums/{album_id}/people',status_code=201, response_model=out.PersonResponse, response_model_exclude_unset=True)
 def add_person(album_id:str,name:str=Form(...,min_length=1,max_length=80),file:UploadFile=File(...),user_id:str|None=Form(None),user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     user_id=user_id or None
@@ -67,7 +70,7 @@ def add_person(album_id:str,name:str=Form(...,min_length=1,max_length=80),file:U
     return person_dict(person)
 
 
-@router.patch('/api/people/{person_id}')
+@router.patch('/api/people/{person_id}', response_model=out.PersonResponse, response_model_exclude_unset=True)
 def patch_person(person_id:str,body:PersonPatch,user=Depends(auth),db:DBSession=Depends(get_db)):
     person=find_person(db,person_id,user)
     member=db.get(AlbumMember,(person.album_id,user.id))
@@ -92,7 +95,7 @@ def patch_person(person_id:str,body:PersonPatch,user=Depends(auth),db:DBSession=
     return person_dict(person)
 
 
-@router.post('/api/people/{person_id}/accept-link')
+@router.post('/api/people/{person_id}/accept-link', response_model=out.PersonResponse, response_model_exclude_unset=True)
 def accept_person_link(person_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     person=find_person(db,person_id,user)
     if person.proposed_user_id != user.id: fail(403,'LINK_NOT_PROPOSED','본인에게 제안된 연결만 확인할 수 있어요.')
@@ -104,7 +107,7 @@ def accept_person_link(person_id:str,user=Depends(auth),db:DBSession=Depends(get
     return person_dict(person)
 
 
-@router.delete('/api/people/{person_id}')
+@router.delete('/api/people/{person_id}', response_model=out.OkResponse, response_model_exclude_unset=True)
 def delete_person(person_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     person=find_person(db,person_id,user)
     if person.user_id!=user.id: membership(db,person.album_id,user,owner=True)
@@ -122,7 +125,7 @@ def delete_person(person_id:str,user=Depends(auth),db:DBSession=Depends(get_db))
     return {'ok':True}
 
 
-@router.get('/api/people/{person_id}/reference')
+@router.get('/api/people/{person_id}/reference', response_class=BinaryResponse, responses={200: {'content': {mime: {'schema': {'type': 'string', 'format': 'binary'}} for mime in ('image/jpeg', 'image/png')}}, 307: {'description': 'Redirect to private signed storage URL'}})
 def person_reference(person_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     person=find_person(db,person_id,user)
     if not person.reference_key: fail(404,'REFERENCE_NOT_FOUND','기준 사진이 없어요.')

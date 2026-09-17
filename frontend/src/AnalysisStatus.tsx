@@ -3,15 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CheckCheck, ChevronRight, Clock3, RefreshCw, Sparkles } from 'lucide-react';
 import { api, post } from './api';
 import { ErrorBox, Modal, Spinner } from './ui';
-import type { Album } from './types';
+import type { Album, AnalysisStatus as Status } from './types';
 import './Management.css';
 
-interface Status {
-  provider: string; mode: 'sample' | 'live'; total: number; recorded_runs: number; calls: number; elapsed_ms: number;
-  stats: { pending: number; processing: number; completed: number; failed: number };
-  failures: { photo_id: string; filename: string; error: string | null }[];
-  oldest_pending_at?: string | null;
-}
 function duration(ms: number) { return ms < 1000 ? `${Math.round(ms)}ms` : ms < 60000 ? `${(ms / 1000).toFixed(1)}초` : `${Math.floor(ms / 60000)}분 ${Math.round(ms % 60000 / 1000)}초`; }
 export default function AnalysisStatus({ album, onClose, onPhoto }: { album: Album; onClose: () => void; onPhoto: (photoId: string) => void }) {
   const client = useQueryClient();

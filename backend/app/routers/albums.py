@@ -1,6 +1,8 @@
 """Album membership, invitation, settings, and deletion endpoints."""
 from __future__ import annotations
 
+from .. import responses as out
+
 import secrets
 from ..config import settings
 from ..db import get_db
@@ -23,13 +25,13 @@ def timezone_name(name):
     return name
 
 
-@router.get('/api/albums')
+@router.get('/api/albums', response_model=out.PageResponse[out.AlbumResponse], response_model_exclude_unset=True)
 def albums(user=Depends(auth),db:DBSession=Depends(get_db)):
     rows=db.scalars(select(Album).join(AlbumMember).where(AlbumMember.user_id==user.id).order_by(Album.created_at.desc())).all()
     return {'items':[album_dict(db,a) for a in rows],'total':len(rows),'page':1,'page_size':len(rows)}
 
 
-@router.post('/api/albums',status_code=201)
+@router.post('/api/albums',status_code=201, response_model=out.AlbumResponse, response_model_exclude_unset=True)
 def create_album(body:AlbumCreate,user=Depends(auth),db:DBSession=Depends(get_db)):
     a=Album(name=body.name.strip(),description=body.description,timezone=timezone_name(body.timezone),owner_id=user.id,invite_code=secrets.token_urlsafe(12))
     if not a.name: fail(422,'INVALID_NAME','앨범 이름을 입력해 주세요.')
@@ -40,7 +42,7 @@ def create_album(body:AlbumCreate,user=Depends(auth),db:DBSession=Depends(get_db
     return album_dict(db,a)
 
 
-@router.post('/api/albums/join')
+@router.post('/api/albums/join', response_model=out.AlbumResponse, response_model_exclude_unset=True)
 def join_album(body:Join,user=Depends(auth),db:DBSession=Depends(get_db)):
     code=body.code.strip().rstrip('/').split('/')[-1]
     a=db.scalar(select(Album).where(Album.invite_code==code).with_for_update())
@@ -52,12 +54,12 @@ def join_album(body:Join,user=Depends(auth),db:DBSession=Depends(get_db)):
     return album_dict(db,a)
 
 
-@router.get('/api/albums/{album_id}')
+@router.get('/api/albums/{album_id}', response_model=out.AlbumResponse, response_model_exclude_unset=True)
 def album_detail(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     return album_dict(db,membership(db,album_id,user))
 
 
-@router.patch('/api/albums/{album_id}')
+@router.patch('/api/albums/{album_id}', response_model=out.AlbumResponse, response_model_exclude_unset=True)
 def album_patch(album_id:str,body:AlbumPatch,user=Depends(auth),db:DBSession=Depends(get_db)):
     a=membership(db,album_id,user,owner=True,exclusive=True)
     for key,value in body.model_dump(exclude_unset=True).items():
@@ -71,7 +73,7 @@ def album_patch(album_id:str,body:AlbumPatch,user=Depends(auth),db:DBSession=Dep
     return album_dict(db,a)
 
 
-@router.post('/api/albums/{album_id}/invite')
+@router.post('/api/albums/{album_id}/invite', response_model=out.InviteResponse, response_model_exclude_unset=True)
 def rotate_invite(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     a=membership(db,album_id,user,owner=True,exclusive=True)
     a.invite_code=secrets.token_urlsafe(12)
@@ -79,7 +81,7 @@ def rotate_invite(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     return {'invite_code':a.invite_code}
 
 
-@router.delete('/api/albums/{album_id}')
+@router.delete('/api/albums/{album_id}', response_model=out.OkResponse, response_model_exclude_unset=True)
 def delete_album(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     a=membership(db,album_id,user,owner=True,exclusive=True)
     for p in db.scalars(select(Photo).where(Photo.album_id==album_id).order_by(Photo.id).with_for_update()): queue_all_photo_files(db,p)
@@ -93,7 +95,7 @@ def delete_album(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     return {'ok':True}
 
 
-@router.delete('/api/albums/{album_id}/members/{user_id}')
+@router.delete('/api/albums/{album_id}/members/{user_id}', response_model=out.OkResponse, response_model_exclude_unset=True)
 def remove_member(album_id:str,user_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     a=membership(db,album_id,user,exclusive=True)
     if user.id != user_id: membership(db,album_id,user,owner=True)

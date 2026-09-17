@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, LoaderCircle, X, ImageOff, AlertCircle } from 'lucide-react';
 export function Logo({light=false}:{light?:boolean}) { return <div className={`logo ${light?'light':''}`}><span>찍</span></div> }
-export function Avatar({name,url,size=38}:{name:string;url?:string;size?:number}) {const [failed,setFailed]=useState<string|null>(null);return <span className="avatar" style={{width:size,height:size}}>{url&&failed!==url?<img src={url} alt={name} onError={()=>setFailed(url)}/>:name.slice(0,1)||'?'}</span>}
+export function Avatar({name,url,size=38}:{name:string;url?:string|null;size?:number}) {const [failed,setFailed]=useState<string|null>(null);return <span className="avatar" style={{width:size,height:size}}>{url&&failed!==url?<img src={url} alt={name} onError={()=>setFailed(url)}/>:name.slice(0,1)||'?'}</span>}
 export function Spinner({label='불러오는 중이에요'}:{label?:string}) {return <div className="loading" role="status"><LoaderCircle className="spin" size={24} aria-hidden="true"/><span>{label}</span></div>}
 export function Empty({title='아직 사진이 없어요',description='우리의 첫 번째 추억을 올려보세요.',action}:{title?:string;description?:string;action?:ReactNode}) {return <div className="empty"><span className="empty-icon"><ImageOff size={32}/></span><h3>{title}</h3><p>{description}</p>{action}</div>}
 export function ErrorBox({error,retry}:{error:Error;retry?:()=>void}) {return <div className="error-box" role="alert"><AlertCircle size={18} aria-hidden="true"/><span>{error.message}</span>{retry&&<button type="button" onClick={retry}>다시 시도</button>}</div>}

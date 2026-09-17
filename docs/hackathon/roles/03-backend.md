@@ -35,6 +35,8 @@
 - `backend/app/routers/versions.py`
 - `backend/app/routers/collaboration.py`
 - `backend/app/routers/groups.py`
+- `backend/app/responses.py`
+- `contracts/README.md`
 
 ## 주관 작업
 

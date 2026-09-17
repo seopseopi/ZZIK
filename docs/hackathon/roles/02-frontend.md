@@ -30,6 +30,9 @@
 - `frontend/src/features/library/SearchField.tsx`
 - `frontend/src/features/curation/Groups.tsx`
 - `frontend/src/features/curation/Recommendations.tsx`
+- `frontend/src/generated/api.d.ts`
+- `contracts/codegen/generate.mjs`
+- `contracts/README.md`
 
 ## 주관 작업
 

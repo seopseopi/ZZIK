@@ -59,7 +59,7 @@ def render(plan):
             'HTTP 경로·배포 환경·스토리지·worker 실행 계약을 확인한다.') + '\n\n'
             '요청·오류는 `contracts/openapi.json`, 상세 응답 의미는 `docs/API_CONTRACT.md`, '
             'Python 호출 경계는 `contracts/python-interfaces.json`을 따른다. '
-            '응답 타입 자동 생성은 아직 없으므로 프론트 타입과 실제 응답도 함께 확인한다.\n\n'
+            '프론트 타입은 OpenAPI에서 생성한다. 계약 변경 시 스냅샷과 타입을 함께 갱신하고 `npm --prefix frontend run types:check` 및 실제 응답 검사를 수행한다.\n\n'
             '## 진행 순서\n\n'
             '1. `git status`와 선행 PR을 확인하고 M 번호가 있는 작업 브랜치를 사용한다.\n'
             '2. 현재 기능을 재현하고 완료 조건별로 구현됨/부족함/외부 검증 필요를 나눈다.\n'

@@ -91,7 +91,7 @@ npm --prefix frontend run test:e2e
 
 팀원이 정리한 새 원문은 `docs/hackathon/source/TEAM_SPEC.md`로 보존했다. [팀별 구현·조립 가이드](hackathon/README.md)에 5개 역할과 M01~M17 작업 프롬프트, 공유 파일 담당, 선행 작업, 완료 조건을 작성했다. `plan.json`에서 생성한 프롬프트가 원본과 일치하는지 검사한다.
 
-- `contracts/openapi.json`: API 경로·요청 스키마 스냅샷. 현재 모든 응답에 명시적 response_model이 있는 것은 아니므로 응답 의미/프론트 타입까지 완전히 보증하지 않는다.
+- `contracts/openapi.json`: API 경로·요청 스키마 스냅샷. 초기 단계에는 응답 모델이 없었다. 아래 후속 단계에서 JSON 응답 모델과 프론트 타입 생성을 연결했으며, 의미·권한 검증은 실제 테스트로 구분한다.
 - `contracts/python-interfaces.json`: 분석·이미지·저장·그룹·worker의 매개변수 이름 변경 감지. 반환값 의미는 실제 기능 검사로 확인한다.
 - `scripts/run_integration.py`: 로컬 전용 `_e2e` DB 안에 임시 스키마를 만들고, 임시 사진 폴더·동적 포트로 API/worker/web을 실행한다. 성공·실패 후 생성한 프로세스와 스키마를 정리한다.
 - Vite 프록시와 관리 E2E의 두 번째 계정도 지정한 서버 주소를 사용하도록 연결했다.
@@ -111,7 +111,7 @@ npm --prefix frontend run test:e2e
 - 독립 실행기에서 API/worker를 실제로 종료·재시작한 뒤 세션·앨범·원본 SHA-256·보정값·승인·최종본 유지와 검증 앨범 정리까지 통과.
 - CI에 깨끗한 Docker Compose 빌드, Nginx 경유 E2E, DB/API/worker/web 컨테이너 재시작 검사를 추가했다. backend/frontend/integration/compose **4개 CI 작업 모두 통과**했다. Compose 2분 17초, 직접 실행 integration 1분 51초. [실행 증거](https://github.com/seopseopi/ZZIK/actions/runs/35166559076).
 
-공유 models/services/image_service는 여전히 통합 영역이다. 명시적 응답 모델·프론트 타입 자동 생성, 실제 AWS 검증, starter 제작은 후속 범위다. 컨테이너 재시작 검증은 백업에서의 복원 검증과 구분한다.
+공유 models/services/image_service는 여전히 통합 영역이다. 당시 후속 범위였던 명시적 응답 모델·프론트 타입 생성은 아래 단계에서 연결했다. AWS 전체 연결 검증과 starter 제작은 남아 있다. 컨테이너 재시작 검증은 백업에서의 복원 검증과 구분한다.
 
 ## AWS 연결 준비 3단계 — 단계별 기록
 
@@ -121,7 +121,7 @@ npm --prefix frontend run test:e2e
 - 후속 보완: 보고서 경로 오류를 AWS 호출 전에 거부하도록 수정했다. 관련 로컬 테스트 34개, 하네스·셸 구문 검사를 통과했다. 전체 후속 CI 결과는 [PR #4](https://github.com/seopseopi/ZZIK/pull/4)의 최신 Checks에서 확인한다.
 - 사용자 지정 범위는 **신규 AWS 자원 생성 없이 준비까지**다. 실제 EC2 역할·S3 연결과 전체 AWS 배포는 미완료이며 서비스의 local/fixture 설정을 유지한다. Rekognition 분석 함수의 후속 실검증은 아래에 기록한다. 백업 복원·starter 제작은 이번 단계에서 시작하지 않았다.
 
-현재 개발 브랜치는 `feat/m01-backup-restore`이다. S3·EC2 연결은 실행 환경·버킷·역할 및 비용/유지 시간이 확정된 뒤 진행한다. 이전 단계의 테스트 숫자는 당시 결과이므로 최신 전체 개수와 구분한다.
+현재 개발 브랜치는 `feat/m02-response-contracts`이다. S3·EC2 연결은 실행 환경·버킷·역할 및 비용/유지 시간이 확정된 뒤 진행한다. 이전 단계의 테스트 숫자는 당시 결과이므로 최신 전체 개수와 구분한다.
 
 ### 환경 변경과 읽기 전용 사전 점검
 
@@ -147,3 +147,12 @@ npm --prefix frontend run test:e2e
 - 로컬 PostgreSQL 17.11, revision `0002`, 테이블 18개·사진 파일 73개로 검증했다. fixture/local 자료이며 실제 사용자 데이터와 AWS는 사용하지 않았다.
 - 파일 손상·누락·추가·심볼릭 링크, 기존 대상 덮어쓰기, 복원 실패 정리, 비밀번호가 없는 명령 인자를 검사한다. CI의 `integration`에 같은 복원 리허설을 추가했다. 확정 CI 결과는 이번 PR Checks를 따른다.
 - [사용법과 한계](BACKUP_RESTORE.md). RDS/PITR·S3 복구, 정기 백업·외부 보관·운영 규모 복구 목표는 남아 있다. 이번 변경은 API/DB 스키마를 바꾸지 않는다.
+
+
+### M02·M04·M06·M07·M11 — 응답 계약과 프론트 타입 연결
+
+- 51개 `/api` 동작 중 JSON 성공 45개에 명시적 응답 모델을 적용하고, 파일 6개에 실제 이미지/ZIP 및 필요한 307 응답을 선언했다. 요청 경로·파라미터·본문 형식은 이전 스냅샷과 동일함을 확인했다.
+- nullable 값·사진 목록/상세·작성자 필드·날짜 형식을 실제 응답과 일치시켰다. 응답 검증 오류는 민감한 응답 값을 로그에 기록하지 않는다. 기존 사용자/사진/승인/DB 스키마 변경은 없다.
+- OpenAPI → `frontend/src/generated/api.d.ts` → 화면 타입을 연결했다. `types:check`가 생성 파일 누락/불일치를 검사한다. 생성기는 TypeScript 5 요구를 별도 도구 패키지에 격리하여 프론트 TypeScript 7을 유지한다.
+- 실제 DB 응답과 기존 serializer 결과 비교, nullable/누락·작성자·동적 품질 값·오류 처리 검사를 추가했다. 일반/체험판 빌드와 생성 타입 일치 검사를 통과했다. 기존 IndexedDB 자료의 기본값 보충 E2E도 추가했다. 전체 CI 확정 결과는 이번 PR Checks에서 확인한다.
+- [사용법·범위](../contracts/README.md). 요청 URL에서 타입을 자동 추론하는 전체 SDK나 브라우저 런타임 JSON 검증기는 아니다. 대회용 starter 및 AWS 저장·배포 검증은 별도 후속 단계다.

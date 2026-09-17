@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Images, Users } from "lucide-react";
 import { api } from "../../api";
-import type { Album, Photo } from "../../types";
+import type { Album, Board as BoardResponse } from "../../types";
 import { ErrorBox, Spinner } from "../../ui";
 
 export function Board({
@@ -13,7 +13,7 @@ export function Board({
 }) {
   const board = useQuery({
     queryKey: ["board", album.id],
-    queryFn: () => api<Record<string, Photo[]>>(`/albums/${album.id}/board`),
+    queryFn: () => api<BoardResponse>(`/albums/${album.id}/board`),
     refetchInterval: 5000,
   });
   const columns = [
@@ -21,7 +21,7 @@ export function Board({
     ["editing", "보정 중"],
     ["review", "확인 대기"],
     ["final", "최종본"],
-  ];
+  ] as const;
   return (
     <section className="extension-view">
       <div className="section-heading">

@@ -1,6 +1,8 @@
 """Account registration, session login, and logout."""
 from __future__ import annotations
 
+from .. import responses as out
+
 import secrets
 from ..config import settings
 from ..db import get_db
@@ -28,7 +30,7 @@ def login_session(db, user, request, response):
     return {'user':user_dict(user),'csrf_token':csrf}
 
 
-@router.post('/api/auth/register',status_code=201)
+@router.post('/api/auth/register',status_code=201, response_model=out.SessionResponse, response_model_exclude_unset=True)
 def register(body:Register,request:Request,response:Response,db:DBSession=Depends(get_db)):
     user = User(name=body.name,email=body.email,password_hash=hash_password(body.password))
     db.add(user)
@@ -39,7 +41,7 @@ def register(body:Register,request:Request,response:Response,db:DBSession=Depend
     return login_session(db,user,request,response)
 
 
-@router.post('/api/auth/login')
+@router.post('/api/auth/login', response_model=out.SessionResponse, response_model_exclude_unset=True)
 def login(body:Login,request:Request,response:Response,db:DBSession=Depends(get_db)):
     user = db.scalar(select(User).where(User.email==body.email.strip().lower()))
     if not user or not verify_password(body.password,user.password_hash):
@@ -47,13 +49,13 @@ def login(body:Login,request:Request,response:Response,db:DBSession=Depends(get_
     return login_session(db,user,request,response)
 
 
-@router.get('/api/auth/me')
+@router.get('/api/auth/me', response_model=out.SessionResponse, response_model_exclude_unset=True)
 def me(request:Request,db:DBSession=Depends(get_db)):
     user, session = current_user(request,db)
     return {'user':user_dict(user),'csrf_token':session.csrf_token}
 
 
-@router.post('/api/auth/logout')
+@router.post('/api/auth/logout', response_model=out.OkResponse, response_model_exclude_unset=True)
 def logout(request:Request,response:Response,db:DBSession=Depends(get_db)):
     _,session=current_user(request,db)
     db.delete(session)

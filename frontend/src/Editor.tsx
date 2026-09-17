@@ -4,10 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowLeft, ArrowLeftRight, Check, CheckCircle2, ChevronDown, Clock3, Download, History, Info, LoaderCircle, Maximize2, MessageCircle, Minimize2, Palette, RotateCcw, Send, ShieldCheck, SlidersHorizontal, SunMedium, Trash2, Users, X } from 'lucide-react';
 import { api, downloadPhoto, patch, post, remove, timeLabel } from './api';
 import { Avatar, ErrorBox, Spinner } from './ui';
-import type { Album, Photo, User, Version } from './types';
+import type { Album, PhotoDetail, User, Version } from './types';
 import './Editor.css';
 
-type DetailPhoto = Photo & { uploader_id?: string; analysis_metadata?: Record<string, unknown> };
 type EditorProps = { photoId: string; album: Album; user: User; onClose: () => void; onChanged?: () => void; onDeleted?: (photoId: string) => void };
 type Tab = 'edit' | 'review' | 'info';
 const analysisLabels: Record<string, string> = { pending: '분석 대기 중', processing: '사진 분석 중', completed: '분석 완료', failed: '분석 확인 필요' };
@@ -16,7 +15,7 @@ export default function Editor({ photoId, album, user, onClose, onChanged, onDel
   const client = useQueryClient();
   const [deleting, setDeleting] = useState(false);
   const deletingRef = useRef(false);
-  const query = useQuery({ queryKey: ['photo', photoId], queryFn: ({ signal }) => api<DetailPhoto>(`/photos/${photoId}`, { signal }), enabled: !deleting, refetchInterval: deleting ? false : 5000 });
+  const query = useQuery({ queryKey: ['photo', photoId], queryFn: ({ signal }) => api<PhotoDetail>(`/photos/${photoId}`, { signal }), enabled: !deleting, refetchInterval: deleting ? false : 5000 });
   const photo = query.data;
   const versions = photo?.versions || [];
   const [selectedId, setSelectedId] = useState<string | null>(null);

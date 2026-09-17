@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { api, patch, post } from "../../api";
-import type { Album, FaceGroup } from "../../types";
+import type { Album, FaceGroups } from "../../types";
 import { Empty, ErrorBox, Spinner } from "../../ui";
 
 export function Groups({ album }: { album: Album }) {
@@ -11,7 +11,7 @@ export function Groups({ album }: { album: Album }) {
   const data = useQuery({
     queryKey: ["groups", album.id],
     queryFn: () =>
-      api<{ items?: FaceGroup[]; groups?: FaceGroup[]; message?: string }>(
+      api<FaceGroups>(
         `/albums/${album.id}/face-groups`,
       ),
   });
@@ -23,7 +23,7 @@ export function Groups({ album }: { album: Album }) {
       setSelected([]);
     },
   });
-  const groups = data.data?.groups || data.data?.items || [];
+  const groups = data.data?.items || [];
   return (
     <section className="extension-view">
       <div className="section-heading">

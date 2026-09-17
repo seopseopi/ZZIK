@@ -1,6 +1,8 @@
 """Album-scoped face-group analysis, linking, merging, and splitting."""
 from __future__ import annotations
 
+from .. import responses as out
+
 from ..config import settings
 from ..db import get_db
 from ..dependencies import auth
@@ -27,7 +29,7 @@ def get_group(db,group_id,user):
     return g
 
 
-@router.get('/api/albums/{album_id}/face-groups')
+@router.get('/api/albums/{album_id}/face-groups', response_model=out.FaceGroupsResponse, response_model_exclude_unset=True)
 def face_groups(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     groups=db.scalars(select(FaceGroup).where(FaceGroup.album_id==album_id).order_by(FaceGroup.created_at)).all()
@@ -35,7 +37,7 @@ def face_groups(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
             'mode':settings.face_analysis_provider,'message':None if settings.face_analysis_provider=='rekognition' else '등록 없는 자동 인물 그룹은 AWS Rekognition 연결이 필요해요. 샘플 모드는 기준 인물 매칭만 제공해요.'}
 
 
-@router.post('/api/albums/{album_id}/face-groups/analyze')
+@router.post('/api/albums/{album_id}/face-groups/analyze', response_model=out.QueuedResponse, response_model_exclude_unset=True)
 def analyze_face_groups(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     if settings.face_analysis_provider!='rekognition': fail(409,'GROUPING_UNAVAILABLE','자동 인물 그룹은 실제 Rekognition 연결 후 사용할 수 있어요.')
@@ -67,7 +69,7 @@ def apply_group_person(db,g,person_id):
     sync_group_people(db,photo_ids,force_review=True)
 
 
-@router.patch('/api/face-groups/{group_id}')
+@router.patch('/api/face-groups/{group_id}', response_model=out.FaceGroupResponse, response_model_exclude_unset=True)
 def patch_group(group_id:str,body:GroupPatch,user=Depends(auth),db:DBSession=Depends(get_db)):
     g=get_group(db,group_id,user)
     if body.name is not None:
@@ -82,7 +84,7 @@ def patch_group(group_id:str,body:GroupPatch,user=Depends(auth),db:DBSession=Dep
     return group_dict(db,g)
 
 
-@router.post('/api/face-groups/merge')
+@router.post('/api/face-groups/merge', response_model=out.FaceGroupResponse, response_model_exclude_unset=True)
 def merge_groups(body:GroupMerge,user=Depends(auth),db:DBSession=Depends(get_db)):
     ids=sorted(set(body.group_ids))
     if len(ids)<2: fail(422,'TWO_GROUPS_REQUIRED','그룹을 2개 이상 선택해 주세요.')
@@ -101,7 +103,7 @@ def merge_groups(body:GroupMerge,user=Depends(auth),db:DBSession=Depends(get_db)
     return group_dict(db,target)
 
 
-@router.post('/api/face-groups/{group_id}/split',status_code=201)
+@router.post('/api/face-groups/{group_id}/split',status_code=201, response_model=out.FaceGroupResponse, response_model_exclude_unset=True)
 def split_group(group_id:str,body:GroupSplit,user=Depends(auth),db:DBSession=Depends(get_db)):
     g=get_group(db,group_id,user)
     faces=db.scalars(select(GroupFace).where(GroupFace.group_id==g.id)).all()

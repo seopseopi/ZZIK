@@ -54,4 +54,4 @@ API 경로·함수 이름·요청·오류·승인 정책·DB 스키마는 분리
 
 ## 이번 단계의 경계
 
-아직 독립 패키지나 빈 starter는 아니다. 공유 services/models와 이미지 전처리 경계, 응답 모델·타입 생성은 후속 작업이다. 기능 추가와 이 구조 이동은 별도 PR로 관리한다. 실제 AWS 검증 후 기준본을 확정하고 starter 재조립을 진행한다.
+아직 독립 패키지나 빈 starter는 아니다. 응답 모델은 `backend/app/responses.py`, 타입 생성은 `contracts/codegen/`에 있다. 공유 services/models와 이미지 전처리 경계의 추가 분리는 후속 작업이다. 기능 추가와 이 구조 이동은 별도 PR로 관리한다. 실제 AWS 검증 후 기준본을 확정하고 starter 재조립을 진행한다.

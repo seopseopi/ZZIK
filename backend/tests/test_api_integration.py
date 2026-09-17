@@ -389,3 +389,30 @@ def test_group_link_merge_split_rechecks_consensus(api):
     photo=a.get('/api/photos/'+second['id']).json()
     assert photo['people']==[] and photo['final_version_id'] is None
     assert photo['versions'][0]['needs_review']
+
+
+def test_response_contract_preserves_nulls_details_metadata_and_author_shape(api):
+    from fastapi.encoders import jsonable_encoder
+    from backend.app.models import Album as AlbumModel
+    a,_,_,album,samples,factory,_=api
+    with factory() as db:
+        expected_album=jsonable_encoder(services.album_dict(db,db.get(AlbumModel,album['id'])))
+    assert a.get('/api/albums/'+album['id']).json()==expected_album
+    assert expected_album['cover_url'] is None
+    photo=post_photo(a,album,samples,'landscape')
+    assert photo['captured_at'] is None and photo['final_version_id'] is None
+    assert 'faces' not in photo and 'versions' not in photo
+    assert worker.process_one()
+    detail=a.get('/api/photos/'+photo['id']).json()
+    with factory() as db:
+        expected_photo=jsonable_encoder(services.photo_dict(db,db.get(Photo,photo['id']),detail=True))
+    assert detail==expected_photo
+    assert detail['faces']==[] and detail['versions']==[]
+    assert isinstance(detail['quality']['perceptual_hash'],str)
+    assert isinstance(detail['analysis_metadata']['calls'],int)
+    version=create_version(a,photo)
+    assert set(version['author'])=={'id','name'}
+    assert version['parent_id'] is None and version['review_reason'] is None
+    invalid=a.post('/api/albums',json={'name':''})
+    assert invalid.status_code==422
+    assert {'code','message','details'}==set(invalid.json())

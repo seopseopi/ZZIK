@@ -1,5 +1,5 @@
-import type { Album, Person, Photo, Version } from '../types';
-import { demoUsers, initialState, now, readState, uid, updateState, versionStatus } from './store';
+import type { Album, Config, Person, Photo, PhotoDetail, Version } from '../types';
+import { demoUsers, photoDefaults, initialState, now, readState, uid, updateState, versionStatus } from './store';
 import type { DemoState } from './store';
 import { dataUrl, imageFile, render } from './images';
 
@@ -10,17 +10,17 @@ const json = (value: unknown) => new Response(JSON.stringify(value), { headers: 
 function stats(photos: Photo[]) { return { completed: photos.filter(p => p.analysis_status === 'completed').length, failed: photos.filter(p => p.analysis_status === 'failed').length, pending: 0, processing: 0 }; }
 function albumView(state: DemoState, album: Album): Album {
   const photos = state.photos.filter(p => p.album_id === album.id);
-  return { ...album, photo_count: photos.length, member_count: album.members.length, cover_url: photos.find(p => p.face_count > 2)?.thumbnail_url || photos[0]?.thumbnail_url };
+  return { ...album, photo_count: photos.length, member_count: album.members.length, cover_url: photos.find(p => p.face_count > 2)?.thumbnail_url || photos[0]?.thumbnail_url || null };
 }
-function photoView(photo: Photo): Photo {
-  return { ...photo, versions: photo.versions?.map(versionStatus), board_status: photo.final_version_id ? 'final' : photo.versions?.some(v => v.review_requested) ? 'review' : photo.versions?.length ? 'editing' : photo.selected ? 'selection' : 'unselected' };
+function photoView(photo: Photo): PhotoDetail {
+  return { ...photo, faces: photo.faces ?? [], versions: (photo.versions ?? []).map(versionStatus), board_status: photo.final_version_id ? 'final' : photo.versions?.some(v => v.review_requested) ? 'review' : photo.versions?.length ? 'editing' : photo.selected ? 'selection' : 'unselected' };
 }
 function invalidateReview(photo: Photo) {
-  photo.final_version_id = undefined;
+  photo.final_version_id = null;
   photo.versions?.forEach(v => { v.is_final = false; if (v.review_requested) v.needs_review = true; versionStatus(v); });
 }
 function owner(album: Album, userId: string) { if (!album.members.some(m => m.id === userId && m.role === 'owner')) throw new DemoError('앨범 소유자만 변경할 수 있어요.', 403); }
-function notify(state: DemoState, photo: Photo, message: string) { state.notices.unshift({id: uid(), message, photo_id: photo.id, album_id: photo.album_id, created_at: now(), read: false}); }
+function notify(state: DemoState, photo: Photo, message: string) { state.notices.unshift({id: uid(), message, photo_id: photo.id, album_id: photo.album_id, created_at: now(), read: false, kind: 'comment', version_id: null}); }
 function settings(body: Body) {
   const brightness = body.brightness ?? 1, saturation = body.saturation ?? 1;
   if (!Number.isFinite(brightness) || brightness < .25 || brightness > 2 || !Number.isFinite(saturation) || saturation < 0 || saturation > 2) throw new DemoError('보정값의 범위를 확인해 주세요.');
@@ -29,7 +29,7 @@ function settings(body: Body) {
 async function route(state: DemoState, path: string, method: string, body: Body, form?: FormData): Promise<unknown> {
   const [pathname, search = ''] = path.split('?'), params = new URLSearchParams(search);
   const [, resource, id, action, child] = pathname.split('/');
-  if (path === '/config') return {face_provider: 'fixture', storage_backend: 'browser-demo', demo_enabled: true};
+  if (path === '/config') return {face_provider: 'fixture', storage_backend: 'browser-demo', demo_enabled: true, max_upload_bytes: 8 * 1024 * 1024, grouping_available: false} satisfies Config;
   if (path === '/demo/reset') { Object.assign(state, initialState()); return {ok: true}; }
   if (path === '/demo/switch' || path === '/auth/login') {
     const user = demoUsers.find(u => path === '/demo/switch' ? u.id === body.user_id : u.email === body.email);
@@ -42,7 +42,7 @@ async function route(state: DemoState, path: string, method: string, body: Body,
   if (!user) throw new DemoError('체험할 인물을 선택해 주세요.', 401);
   if (path === '/auth/me') return {user, csrf_token: 'browser-demo'};
   if (resource === 'notifications') {
-    if (method === 'POST') { const notice = state.notices.find(n => n.id === id); if (notice) notice.read = true; }
+    if (method === 'POST') { const notice = state.notices.find(n => n.id === id); if (notice) notice.read = true; return {ok: true}; }
     return {items: state.notices, total: state.notices.length};
   }
   if (resource === 'albums') {
@@ -54,7 +54,7 @@ async function route(state: DemoState, path: string, method: string, body: Body,
     if (!id) {
       if (method === 'POST') {
         if (!body.name?.trim()) throw new DemoError('앨범 이름을 입력해 주세요.');
-        const album: Album = { id: uid(), name: body.name.trim(), description: body.description || '', timezone: body.timezone || 'Asia/Seoul', invite_code: `ZZIK-${uid().slice(0, 8).toUpperCase()}`, created_at: now(), members: [{...user, role: 'owner'}], people: [], photo_count: 0, member_count: 1 };
+        const album: Album = { id: uid(), owner_id: user.id, cover_url: null, name: body.name.trim(), description: body.description || '', timezone: body.timezone || 'Asia/Seoul', invite_code: `ZZIK-${uid().slice(0, 8).toUpperCase()}`, created_at: now(), members: [{...user, role: 'owner'}], people: [], photo_count: 0, member_count: 1 };
         state.albums.unshift(album); return albumView(state, album);
       }
       const items = state.albums.filter(a => a.members.some(m => m.id === user.id)).map(a => albumView(state, a));
@@ -67,28 +67,29 @@ async function route(state: DemoState, path: string, method: string, body: Body,
       if (method === 'PATCH') { owner(album, user.id); if (!body.name?.trim()) throw new DemoError('앨범 이름을 입력해 주세요.'); Object.assign(album, {name: body.name.trim(), description: body.description, timezone: body.timezone}); }
       return albumView(state, album);
     }
-    if (action === 'invite') { owner(album, user.id); album.invite_code = `ZZIK-${uid().slice(0, 8).toUpperCase()}`; return albumView(state, album); }
+    if (action === 'invite') { owner(album, user.id); album.invite_code = `ZZIK-${uid().slice(0, 8).toUpperCase()}`; return {invite_code: album.invite_code}; }
     if (action === 'members' && method === 'DELETE') {
       if (child !== user.id) owner(album, user.id);
       if (album.members.some(m => m.id === child && m.role === 'owner')) throw new DemoError('소유자는 앨범에서 나갈 수 없어요.');
       album.members = album.members.filter(m => m.id !== child);
-      album.people.forEach(p => { if (p.user_id === child) p.user_id = undefined; });
-      photos.forEach(p => { p.people.forEach(person => { if (person.user_id === child) person.user_id = undefined; }); invalidateReview(p); });
+      album.people.forEach(p => { if (p.user_id === child) p.user_id = null; });
+      photos.forEach(p => { p.people.forEach(person => { if (person.user_id === child) person.user_id = null; }); invalidateReview(p); });
       return {ok: true};
     }
     if (action === 'people' && form) {
       const file = form.get('file'); if (!(file instanceof File)) throw new DemoError('인물 사진을 선택해 주세요.');
       const image = await imageFile(file);
-      const person: Person = {id: uid(), name: String(form.get('name') || '새 인물'), reference_url: image.url, source: 'manual'};
+      const person: Person = {id: uid(), user_id: null, proposed_user_id: null, link_status: 'unlinked', name: String(form.get('name') || '새 인물'), reference_url: image.url, source: 'manual'};
       const requestedId = String(form.get('user_id') || '');
       if (requestedId === user.id) person.user_id = user.id;
       else if (requestedId) person.proposed_user_id = requestedId;
+      person.link_status = person.user_id ? 'linked' : person.proposed_user_id ? 'pending' : 'unlinked';
       album.people.push(person); return person;
     }
     if (action === 'photos' && method === 'POST' && form) {
       const file = form.get('file'); if (!(file instanceof File)) throw new DemoError('사진을 선택해 주세요.');
       const image = await imageFile(file);
-      const photo: Photo = {id: uid(), album_id: id, uploader_id: user.id, filename: file.name, thumbnail_url: image.url, display_url: image.url, original_url: image.url, width: image.width, height: image.height, created_at: now(), analysis_status: 'failed', analysis_error: '체험 모드에서는 새 사진을 자동 분석하지 않아요. 사진 정보에서 인물을 직접 지정해 주세요.', analysis_provider: 'fixture', analysis_mode: 'fixture', face_count: 0, unknown_faces: 0, people: [], tags: [], selected: false, board_status: 'unselected', versions: []};
+      const photo: Photo = {...photoDefaults, id: uid(), album_id: id, uploader_id: user.id, filename: file.name, thumbnail_url: image.url, display_url: image.url, original_url: image.url, width: image.width, height: image.height, created_at: now(), analysis_status: 'failed', analysis_error: '체험 모드에서는 새 사진을 자동 분석하지 않아요. 사진 정보에서 인물을 직접 지정해 주세요.', analysis_provider: 'fixture', analysis_mode: 'fixture', face_count: 0, unknown_faces: 0, people: [], tags: [], selected: false, board_status: 'unselected', versions: []};
       state.photos.push(photo); return photo;
     }
     if (action === 'photos') {
@@ -106,9 +107,9 @@ async function route(state: DemoState, path: string, method: string, body: Body,
       return {items: items.slice((page - 1) * pageSize, page * pageSize).map(photoView), total: items.length, page, page_size: pageSize, stats: stats(photos)};
     }
     if (action === 'board') return Object.fromEntries(['selection', 'editing', 'review', 'final'].map(key => [key, photos.map(photoView).filter(p => p.board_status === key)]));
-    if (action === 'analysis-status') return {provider: 'fixture', mode: 'sample', total: photos.length, recorded_runs: 0, calls: 0, elapsed_ms: 0, stats: stats(photos), failures: photos.filter(p => p.analysis_status === 'failed').map(p => ({photo_id: p.id, filename: p.filename, error: p.analysis_error}))};
-    if (action === 'recommendations') return {groups: []};
-    if (action === 'face-groups' && method === 'GET') return {items: [], message: '체험 사이트는 자동 인물 그룹 분석을 실행하지 않습니다. 인물 필터와 직접 지정은 체험할 수 있어요.'};
+    if (action === 'analysis-status') return {provider: 'fixture', mode: 'sample', total: photos.length, recorded_runs: 0, calls: 0, elapsed_ms: 0, stats: stats(photos), oldest_pending_at: null, failures: photos.filter(p => p.analysis_status === 'failed').map(p => ({photo_id: p.id, filename: p.filename, error: p.analysis_error}))};
+    if (action === 'recommendations') return {groups: [], method: '체험에서는 자동 추천을 실행하지 않아요.'};
+    if (action === 'face-groups' && method === 'GET') return {items: [], total: 0, available: false, mode: 'fixture', message: '체험 사이트는 자동 인물 그룹 분석을 실행하지 않습니다. 인물 필터와 직접 지정은 체험할 수 있어요.'};
     if (action === 'reanalyze-failed' || action === 'face-groups') throw new DemoError('실제 자동 분석은 서버와 AWS 연결이 필요해요. 체험에서는 인물을 직접 지정해 주세요.');
   }
   if (resource === 'photos') {
@@ -125,8 +126,9 @@ async function route(state: DemoState, path: string, method: string, body: Body,
     }
     if (action === 'preview') { const values = settings(body); return render(photo, values.brightness, values.saturation); }
     if (action === 'versions') {
+      if (method === 'GET') return {items: photo.versions ?? [], total: photo.versions?.length ?? 0};
       const values = settings(body);
-      const version: Version = { id: uid(), photo_id: id, number: (photo.versions?.length || 0) + 1, name: body.name || '새 보정본', parent_id: body.parent_id, author: user, created_at: now(), ...values, renderer_version: 'browser-demo-v1', preview_url: await dataUrl(await render(photo, values.brightness, values.saturation)), review_requested: false, needs_review: false, targets: [], approval_count: 0, target_count: 0, consensus: false, is_final: false, comments: [] };
+      const version: Version = { id: uid(), photo_id: id, number: (photo.versions?.length || 0) + 1, name: body.name || '새 보정본', parent_id: body.parent_id ?? null, review_reason: null, author: {id: user.id, name: user.name}, created_at: now(), ...values, renderer_version: 'browser-demo-v1', preview_url: await dataUrl(await render(photo, values.brightness, values.saturation)), review_requested: false, needs_review: false, targets: [], approval_count: 0, target_count: 0, consensus: false, is_final: false, comments: [] };
       (photo.versions ||= []).push(version); return version;
     }
     if (action === 'reanalyze') throw new DemoError('체험 사이트에서는 자동 분석을 실행하지 않아요. 인물을 직접 지정해 주세요.');
@@ -146,14 +148,14 @@ async function route(state: DemoState, path: string, method: string, body: Body,
       if (!version.review_requested || version.needs_review) throw new DemoError('승인 대상을 다시 확인해 주세요.');
       const target = requireValue(version.targets.find(t => t.user_id === user.id), '이 보정본의 승인 대상이 아니에요.');
       target.approved = method !== 'DELETE';
-      if (!target.approved && version.is_final) { version.is_final = false; photo.final_version_id = undefined; }
+      if (!target.approved && version.is_final) { version.is_final = false; photo.final_version_id = null; }
     } else if (action === 'final') {
       if (!versionStatus(version).consensus) throw new DemoError('등장 멤버가 모두 승인해야 해요.');
       photo.versions!.forEach(v => v.is_final = v.id === id); photo.final_version_id = id;
       notify(state, photo, `${version.name}을 최종본으로 골랐어요.`);
     } else if (action === 'comments') {
       if (!body.body?.trim()) throw new DemoError('의견을 입력해 주세요.');
-      version.comments.push({id: uid(), author: user, body: body.body.trim(), kind: body.kind || 'comment', created_at: now()});
+      version.comments.push({id: uid(), author: {id: user.id, name: user.name}, body: body.body.trim(), kind: body.kind || 'comment', created_at: now()});
     } else if (method === 'PATCH' && body.name?.trim()) version.name = body.name.trim();
     else throw new DemoError('체험에서 지원하지 않는 보정 요청입니다.');
     return versionStatus(version);
@@ -161,16 +163,17 @@ async function route(state: DemoState, path: string, method: string, body: Body,
   if (resource === 'people') {
     const album = requireValue(state.albums.find(a => a.people.some(p => p.id === id) && a.members.some(m => m.id === user.id)), '인물을 찾지 못했어요.');
     const person = album.people.find(p => p.id === id)!;
-    if (action === 'accept-link') { if (person.proposed_user_id !== user.id) throw new DemoError('연결 제안을 받은 인물을 선택해 주세요.'); person.user_id = user.id; person.proposed_user_id = undefined; }
+    if (action === 'accept-link') { if (person.proposed_user_id !== user.id) throw new DemoError('연결 제안을 받은 인물을 선택해 주세요.'); person.user_id = user.id; person.proposed_user_id = null; }
     else {
       owner(album, user.id);
       if (method === 'DELETE') album.people = album.people.filter(p => p.id !== id);
-      else if (method === 'PATCH') { if (body.name) person.name = body.name; if (body.user_id === null) { person.user_id = undefined; person.proposed_user_id = undefined; } else if (body.user_id) person.proposed_user_id = body.user_id; }
+      else if (method === 'PATCH') { if (body.name) person.name = body.name; if (body.user_id === null) { person.user_id = null; person.proposed_user_id = null; } else if (body.user_id) person.proposed_user_id = body.user_id; }
     }
     state.photos.filter(p => p.album_id === album.id && p.people.some(person => person.id === id)).forEach(photo => {
       photo.people = photo.people.flatMap(p => p.id !== id ? [p] : method === 'DELETE' ? [] : [{...person, source: p.source}]); invalidateReview(photo);
     });
-    return person;
+    person.link_status = person.user_id ? 'linked' : person.proposed_user_id ? 'pending' : 'unlinked';
+    return method === 'DELETE' ? {ok: true} : person;
   }
   throw new DemoError('이 기능은 실제 서버 실행 시 사용할 수 있어요. 체험 안내를 확인해 주세요.', 501);
 }

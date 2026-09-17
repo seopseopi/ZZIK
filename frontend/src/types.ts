@@ -1,8 +1,18 @@
-export interface User { id: string; name: string; email: string; role?: string }
-export interface Person { id: string; name: string; user_id?: string; reference_url?: string; link_status?: string; pending_user_id?: string; proposed_user_id?: string; source?: string }
-export interface Album { id: string; name: string; description?: string; timezone: string; photo_count: number; member_count: number; cover_url?: string; invite_code: string; created_at: string; members: User[]; people: Person[] }
-export interface Photo { uploader_id?: string; analysis_metadata?: {model?:string;calls?:number;elapsed_ms?:number;analyzed_at?:string}; id: string; album_id: string; filename: string; thumbnail_url: string; display_url: string; original_url: string; width: number; height: number; created_at: string; captured_at?: string; capture_timezone?: string; latitude?: number; longitude?: number; location_name?: string; analysis_status: string; analysis_error?: string; analysis_provider?: string; analysis_mode?: string; face_count: number; unknown_faces: number; people: Person[]; tags: string[]; purpose?: string; selected: boolean; note?: string; final_version_id?: string; board_status: string; versions?: Version[]; recommendation?: string; quality?: Record<string,number> }
-export interface Version { id: string; photo_id: string; number: number; name: string; parent_id?: string; author: User; created_at: string; brightness: number; saturation: number; renderer_version: string; preview_url: string; review_requested: boolean; needs_review: boolean; targets: {user_id: string; name: string; approved: boolean}[]; approval_count: number; target_count: number; consensus: boolean; is_final: boolean; comments: {id:string; author:User; body:string; kind:string; created_at:string}[] }
-export interface List<T> { items:T[]; total:number; page:number; page_size:number }
-export interface PhotoList extends List<Photo> { stats: {pending:number; processing:number; completed:number; failed:number} }
-export interface FaceGroup { id:string; name?:string; person_id?:string; faces?:{id:string; thumbnail_url?:string; photo_id:string}[]; face_count?:number }
+import type { components } from './generated/api';
+type Schemas = components['schemas'];
+export type User = Schemas['UserResponse'];
+export type Person = Schemas['PersonResponse'];
+export type Album = Schemas['AlbumResponse'];
+export type PhotoDetail = Schemas['PhotoDetailResponse'];
+export type Photo = Schemas['PhotoResponse'] & Partial<Pick<PhotoDetail, 'faces' | 'versions'>>;
+export type Version = Schemas['VersionResponse'];
+export type FaceGroup = Schemas['FaceGroupResponse'];
+export type PhotoList = Schemas['PhotoListResponse'];
+export type List<T> = Omit<Schemas['PageResponse_AlbumResponse_'], 'items'> & { items: T[] };
+export type AnalysisStatus = Schemas['AnalysisStatusResponse'];
+export type Session = Schemas['SessionResponse'];
+export type Board = Schemas['BoardResponse'];
+export type Recommendations = Schemas['RecommendationsResponse'];
+export type FaceGroups = Schemas['FaceGroupsResponse'];
+export type Config = Schemas['ConfigResponse'];
+export type Notice = Schemas['NotificationResponse'];

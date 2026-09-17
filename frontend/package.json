@@ -11,7 +11,9 @@
     "test:e2e": "playwright test",
     "dev:demo": "vite --mode demo --host 127.0.0.1 --port 5174 --strictPort",
     "build:demo": "tsc -b && vite build --mode demo",
-    "test:demo": "playwright test --config playwright.demo.config.ts"
+    "test:demo": "playwright test --config playwright.demo.config.ts",
+    "types:generate": "node ../contracts/codegen/generate.mjs",
+    "types:check": "node ../contracts/codegen/generate.mjs --check"
   },
   "dependencies": {
     "@tanstack/react-query": "5.103.0",

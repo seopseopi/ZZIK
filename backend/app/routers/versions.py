@@ -1,6 +1,9 @@
 """Non-destructive edits, version history, approvals, and final selection."""
 from __future__ import annotations
 
+from .. import responses as out
+from fastapi.responses import Response as BinaryResponse
+
 from .. import storage as storage_backend
 from ..db import get_db
 from ..dependencies import auth, ensure_target_member
@@ -16,14 +19,14 @@ from sqlalchemy.orm import Session as DBSession
 router = APIRouter()
 
 
-@router.get('/api/photos/{photo_id}/versions')
+@router.get('/api/photos/{photo_id}/versions', response_model=out.ItemsResponse[out.VersionResponse], response_model_exclude_unset=True)
 def versions(photo_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     p=get_photo(db,photo_id,user)
     rows=db.scalars(select(Version).where(Version.photo_id==p.id).order_by(Version.number.desc())).all()
     return {'items':[version_dict(db,v,p) for v in rows],'total':len(rows)}
 
 
-@router.post('/api/photos/{photo_id}/versions',status_code=201)
+@router.post('/api/photos/{photo_id}/versions',status_code=201, response_model=out.VersionResponse, response_model_exclude_unset=True)
 def create_version(photo_id:str,body:VersionCreate,user=Depends(auth),db:DBSession=Depends(get_db)):
     p=get_photo(db,photo_id,user,lock=True)
     if body.parent_id:
@@ -39,20 +42,20 @@ def create_version(photo_id:str,body:VersionCreate,user=Depends(auth),db:DBSessi
     return version_dict(db,v,p)
 
 
-@router.post('/api/photos/{photo_id}/preview')
+@router.post('/api/photos/{photo_id}/preview', response_class=BinaryResponse, responses={200: {'content': {mime: {'schema': {'type': 'string', 'format': 'binary'}} for mime in ('image/jpeg',)}}})
 def preview(photo_id:str,body:RenderSettings,user=Depends(auth),db:DBSession=Depends(get_db)):
     p=get_photo(db,photo_id,user)
     data=render_image(storage_backend.get_storage().get(p.original_key),body.brightness,body.saturation,max_size=1600)
     return Response(data,media_type='image/jpeg')
 
 
-@router.get('/api/versions/{version_id}/file')
+@router.get('/api/versions/{version_id}/file', response_class=BinaryResponse, responses={200: {'content': {mime: {'schema': {'type': 'string', 'format': 'binary'}} for mime in ('image/jpeg',)}}, 307: {'description': 'Redirect to private signed storage URL'}})
 def version_file(version_id:str,download:bool=False,preview:bool=False,user=Depends(auth),db:DBSession=Depends(get_db)):
     v,p=get_version(db,version_id,user)
     return version_file_response(p,v,download,preview)
 
 
-@router.post('/api/versions/{version_id}/request-review')
+@router.post('/api/versions/{version_id}/request-review', response_model=out.VersionResponse, response_model_exclude_unset=True)
 def request_review(version_id:str,body:ReviewRequest,user=Depends(auth),db:DBSession=Depends(get_db)):
     v,p=get_version(db,version_id,user,lock=True)
     if not body.confirmed: fail(422,'TARGETS_NOT_CONFIRMED','등장 인물과 승인 대상을 먼저 확인해 주세요.')
@@ -74,7 +77,7 @@ def request_review(version_id:str,body:ReviewRequest,user=Depends(auth),db:DBSes
     return version_dict(db,v,p)
 
 
-@router.post('/api/versions/{version_id}/approval')
+@router.post('/api/versions/{version_id}/approval', response_model=out.VersionResponse, response_model_exclude_unset=True)
 def approve(version_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     v,p=get_version(db,version_id,user,lock=True)
     targets,_,_=approval_state(db,v)
@@ -85,7 +88,7 @@ def approve(version_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     return version_dict(db,v,p)
 
 
-@router.delete('/api/versions/{version_id}/approval')
+@router.delete('/api/versions/{version_id}/approval', response_model=out.VersionResponse, response_model_exclude_unset=True)
 def revoke_approval(version_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     v,p=get_version(db,version_id,user,lock=True)
     approval=db.get(Approval,(v.id,user.id))
@@ -96,7 +99,7 @@ def revoke_approval(version_id:str,user=Depends(auth),db:DBSession=Depends(get_d
     return version_dict(db,v,p)
 
 
-@router.post('/api/versions/{version_id}/final')
+@router.post('/api/versions/{version_id}/final', response_model=out.VersionResponse, response_model_exclude_unset=True)
 def set_final(version_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     v,p=get_version(db,version_id,user,lock=True)
     if not approval_state(db,v)[2]: fail(409,'CONSENSUS_REQUIRED','모든 승인 대상의 확인을 받은 보정본만 최종본으로 선택할 수 있어요.')

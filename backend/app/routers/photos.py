@@ -1,6 +1,9 @@
 """Photo upload, filtering, metadata, manual people, and downloads."""
 from __future__ import annotations
 
+from .. import responses as out
+from fastapi.responses import Response as BinaryResponse
+
 from .. import storage as storage_backend
 from ..config import settings
 from ..db import get_db
@@ -19,14 +22,14 @@ from typing import Literal
 router = APIRouter()
 
 
-@router.post('/api/albums/{album_id}/photos',status_code=201)
+@router.post('/api/albums/{album_id}/photos',status_code=201, response_model=out.PhotoResponse, response_model_exclude_unset=True)
 def upload(album_id:str,file:UploadFile=File(...),request_id:str=Form(...,min_length=8,max_length=100),user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     p=upload_photo(db,album_id,user,file.file.read(settings.max_upload_bytes+1),file.filename,file.content_type,request_id)
     return photo_dict(db,p)
 
 
-@router.get('/api/albums/{album_id}/photos')
+@router.get('/api/albums/{album_id}/photos', response_model=out.PhotoListResponse, response_model_exclude_unset=True)
 def list_photos(album_id:str,page:int=Query(1,ge=1),page_size:int=Query(40,ge=1,le=100),
                 filter:Literal['all','mine','solo','group','no_faces','review','final']='all',people:str='',
                 match:Literal['all','any']='all',tag:str='',q:str='',mine:bool=False,sort:Literal['newest','oldest','captured']='newest',date:str='',
@@ -72,12 +75,12 @@ def list_photos(album_id:str,page:int=Query(1,ge=1),page_size:int=Query(40,ge=1,
     return {'items':[photo_dict(db,p) for p in rows],'total':total,'page':page,'page_size':page_size,'stats':stats}
 
 
-@router.get('/api/photos/{photo_id}')
+@router.get('/api/photos/{photo_id}', response_model=out.PhotoDetailResponse, response_model_exclude_unset=True)
 def photo_detail(photo_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     return photo_dict(db,get_photo(db,photo_id,user),detail=True)
 
 
-@router.patch('/api/photos/{photo_id}')
+@router.patch('/api/photos/{photo_id}', response_model=out.PhotoDetailResponse, response_model_exclude_unset=True)
 def patch_photo(photo_id:str,body:PhotoPatch,user=Depends(auth),db:DBSession=Depends(get_db)):
     p=get_photo(db,photo_id,user,lock=True)
     for key,value in body.model_dump(exclude_unset=True).items():
@@ -86,7 +89,7 @@ def patch_photo(photo_id:str,body:PhotoPatch,user=Depends(auth),db:DBSession=Dep
     return photo_dict(db,p,detail=True)
 
 
-@router.delete('/api/photos/{photo_id}')
+@router.delete('/api/photos/{photo_id}', response_model=out.OkResponse, response_model_exclude_unset=True)
 def delete_photo(photo_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     p=get_photo(db,photo_id,user,lock=True)
     if p.uploader_id!=user.id: membership(db,p.album_id,user,owner=True)
@@ -97,7 +100,7 @@ def delete_photo(photo_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     return {'ok':True}
 
 
-@router.put('/api/photos/{photo_id}/people')
+@router.put('/api/photos/{photo_id}/people', response_model=out.PhotoDetailResponse, response_model_exclude_unset=True)
 def set_people(photo_id:str,body:PeopleSet,user=Depends(auth),db:DBSession=Depends(get_db)):
     p=get_photo(db,photo_id,user,lock=True)
     wanted=set(body.person_ids)
@@ -114,14 +117,14 @@ def set_people(photo_id:str,body:PeopleSet,user=Depends(auth),db:DBSession=Depen
     return photo_dict(db,p,detail=True)
 
 
-@router.get('/api/photos/{photo_id}/file')
+@router.get('/api/photos/{photo_id}/file', response_class=BinaryResponse, responses={200: {'content': {mime: {'schema': {'type': 'string', 'format': 'binary'}} for mime in ('image/jpeg', 'image/png')}}, 307: {'description': 'Redirect to private signed storage URL'}})
 def photo_file(photo_id:str,kind:Literal['original','thumbnail','display']='display',download:bool=False,user=Depends(auth),db:DBSession=Depends(get_db)):
     p=get_photo(db,photo_id,user)
     key=getattr(p,kind+'_key')
     return stored_file(key,p.mime if kind=='original' else 'image/jpeg',p.filename if download else None)
 
 
-@router.get('/api/photos/{photo_id}/download')
+@router.get('/api/photos/{photo_id}/download', response_class=BinaryResponse, responses={200: {'content': {mime: {'schema': {'type': 'string', 'format': 'binary'}} for mime in ('image/jpeg', 'image/png')}}, 307: {'description': 'Redirect to private signed storage URL'}})
 def photo_download(photo_id:str,version_id:str|None=None,user=Depends(auth),db:DBSession=Depends(get_db)):
     p=get_photo(db,photo_id,user)
     if version_id:
@@ -131,7 +134,7 @@ def photo_download(photo_id:str,version_id:str|None=None,user=Depends(auth),db:D
     return stored_file(p.original_key,p.mime,p.filename)
 
 
-@router.get('/api/albums/{album_id}/download')
+@router.get('/api/albums/{album_id}/download', response_class=BinaryResponse, responses={200: {'content': {'application/zip': {'schema': {'type': 'string', 'format': 'binary'}}}}})
 def album_download(album_id:str,photo_ids:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     """A spooled ZIP keeps a bounded batch of originals out of browser memory."""
     import tempfile

@@ -84,3 +84,63 @@ test('mobile demo uploads locally, reports analysis limits, and resets only its 
   await expect(page.getByLabel('체험 인물')).toBeVisible();
   await page.screenshot({path: testInfo.outputPath('demo-mobile-library.png')});
 });
+
+test('existing browser data gains nullable contract fields without losing photos', async ({page}) => {
+  await page.goto('./');
+  await expect(page.locator('.photo-card')).toHaveCount(12);
+  await page.getByLabel('체험 인물').selectOption('minji');
+  // Switching user persists the existing demo state; emulate the previous stored shape.
+  await expect.poll(() => page.evaluate(() => new Promise<boolean>((resolve, reject) => {
+    const opening = indexedDB.open('zzik-browser-demo-v1', 1);
+    opening.onerror = () => reject(opening.error);
+    opening.onsuccess = () => {
+      const db = opening.result;
+      const request = db.transaction('state').objectStore('state').get('current');
+      request.onsuccess = () => { db.close(); resolve(Boolean(request.result)); };
+      request.onerror = () => { db.close(); reject(request.error); };
+    };
+  }))).toBe(true);
+  const before = await page.evaluate(() => new Promise<{photoId: string; count: number}>((resolve, reject) => {
+    const opening = indexedDB.open('zzik-browser-demo-v1', 1);
+    opening.onerror = () => reject(opening.error);
+    opening.onsuccess = () => {
+      const db = opening.result;
+      const tx = db.transaction('state', 'readwrite');
+      const store = tx.objectStore('state');
+      const request = store.get('current');
+      let summary: {photoId: string; count: number};
+      request.onsuccess = () => {
+        const state = request.result;
+        summary = {photoId: state.photos[0].id, count: state.photos.length};
+        for (const album of state.albums) {
+          delete album.owner_id; delete album.cover_url;
+          for (const person of album.people) delete person.proposed_user_id;
+        }
+        for (const photo of state.photos) {
+          for (const key of ['analysis_metadata', 'quality', 'captured_at', 'capture_timezone', 'latitude', 'longitude', 'location_name', 'final_version_id']) delete photo[key];
+        }
+        store.put(state, 'current');
+      };
+      tx.oncomplete = () => { db.close(); resolve(summary); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    };
+  }));
+  await page.reload();
+  await expect(page.locator('.photo-card')).toHaveCount(12);
+  await page.getByLabel('체험 인물').selectOption('jisu');
+  await expect.poll(() => page.evaluate(({photoId, count}) => new Promise<boolean>((resolve, reject) => {
+    const opening = indexedDB.open('zzik-browser-demo-v1', 1);
+    opening.onerror = () => reject(opening.error);
+    opening.onsuccess = () => {
+      const db = opening.result;
+      const request = db.transaction('state').objectStore('state').get('current');
+      request.onsuccess = () => {
+        const state = request.result, photo = state.photos.find((item: {id: string}) => item.id === photoId);
+        db.close();
+        resolve(state.photos.length === count && photo.captured_at === null && photo.final_version_id === null
+          && Boolean(state.albums[0].owner_id) && state.albums[0].people[0].proposed_user_id === null);
+      };
+      request.onerror = () => { db.close(); reject(request.error); };
+    };
+  }), before)).toBe(true);
+});

@@ -46,7 +46,10 @@
         "frontend/src/features/library/PhotoInfo.tsx",
         "frontend/src/features/library/SearchField.tsx",
         "frontend/src/features/curation/Groups.tsx",
-        "frontend/src/features/curation/Recommendations.tsx"
+        "frontend/src/features/curation/Recommendations.tsx",
+        "frontend/src/generated/api.d.ts",
+        "contracts/codegen/generate.mjs",
+        "contracts/README.md"
       ],
       "instructions": [
         "앨범·등록·업로드·갤러리·필터·상세·분석 상태를 실제 API와 연결하고 5번의 보정 화면을 통합한다.",
@@ -79,7 +82,9 @@
         "backend/app/routers/analysis.py",
         "backend/app/routers/versions.py",
         "backend/app/routers/collaboration.py",
-        "backend/app/routers/groups.py"
+        "backend/app/routers/groups.py",
+        "backend/app/responses.py",
+        "contracts/README.md"
       ],
       "instructions": [
         "인증·앨범 권한·DB·API·저장·작업 상태를 담당하며 4번 분석과 5번 버전/승인 코드를 통합한다.",
@@ -194,7 +199,8 @@
         "backend/app/routers/albums.py",
         "frontend/src/features/albums/AlbumHome.tsx",
         "frontend/src/features/albums/AlbumForms.tsx",
-        "frontend/src/features/auth/Login.tsx"
+        "frontend/src/features/auth/Login.tsx",
+        "backend/app/responses.py"
       ],
       "endpoints": [
         "POST /api/auth/register",
@@ -212,7 +218,8 @@
       "validation": [
         ".venv/bin/python scripts/check_harness.py",
         ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
-        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)",
+        "npm --prefix frontend run types:check"
       ],
       "current_status": "구현·로컬 검증됨; AWS 통합 증거 필요",
       "external_evidence": ""
@@ -278,7 +285,8 @@
         "frontend/src/Upload.tsx",
         "backend/app/routers/photos.py",
         "backend/app/photo_operations.py",
-        "backend/app/routers/analysis.py"
+        "backend/app/routers/analysis.py",
+        "backend/app/responses.py"
       ],
       "endpoints": [
         "POST /api/albums/{album_id}/photos",
@@ -292,7 +300,8 @@
       ],
       "validation": [
         ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
-        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)",
+        "npm --prefix frontend run types:check"
       ],
       "current_status": "로컬 저장·다중 업로드 검증됨; S3 실연동 미검증",
       "external_evidence": "S3 객체 저장·다운로드·삭제와 재시작 후 접근을 실제 버킷에서 확인한다."
@@ -358,7 +367,8 @@
         "frontend/src/types.ts",
         "backend/app/routers/photos.py",
         "frontend/src/features/library/Library.tsx",
-        "frontend/src/features/library/SearchField.tsx"
+        "frontend/src/features/library/SearchField.tsx",
+        "backend/app/responses.py"
       ],
       "endpoints": [
         "GET /api/albums/{album_id}/photos"
@@ -372,7 +382,8 @@
       "validation": [
         "npm --prefix frontend run build",
         ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
-        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)",
+        "npm --prefix frontend run types:check"
       ],
       "current_status": "구현·로컬 검증됨; 실제 분석 결과와 연결 검증 필요",
       "external_evidence": ""
@@ -395,7 +406,8 @@
         "backend/app/storage.py",
         "backend/app/routers/photos.py",
         "backend/app/media.py",
-        "frontend/src/features/library/PhotoInfo.tsx"
+        "frontend/src/features/library/PhotoInfo.tsx",
+        "backend/app/responses.py"
       ],
       "endpoints": [
         "GET /api/photos/{photo_id}",
@@ -410,7 +422,8 @@
       ],
       "validation": [
         ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
-        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)",
+        "npm --prefix frontend run types:check"
       ],
       "current_status": "로컬 원본/ZIP 검증됨; S3 서명 URL 실검증 필요",
       "external_evidence": ""
@@ -549,7 +562,8 @@
         "backend/app/services.py",
         "backend/app/models.py",
         "frontend/src/Editor.tsx",
-        "backend/app/routers/versions.py"
+        "backend/app/routers/versions.py",
+        "backend/app/responses.py"
       ],
       "endpoints": [
         "POST /api/versions/{version_id}/request-review",
@@ -565,7 +579,8 @@
       ],
       "validation": [
         ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
-        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
+        ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)",
+        "npm --prefix frontend run types:check"
       ],
       "current_status": "두 계정·동시성·로컬 검증됨; AWS의 서로 다른 기기 검증 필요",
       "external_evidence": ""
