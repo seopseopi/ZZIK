@@ -1,0 +1,391 @@
+{
+  "version": 1,
+  "reference_commit": "2ffb4a96c305ccb3756c880df1460b1b969b89eb",
+  "reference_ci": "https://github.com/seopseopi/ZZIK/actions/runs/35176186244",
+  "scope": "local-fixture-rehearsal",
+  "units": [
+    {
+      "id": "infra-compose",
+      "role": 1,
+      "tasks": [
+        "M01"
+      ],
+      "path": "compose.yaml",
+      "kind": "file",
+      "template": "starter/templates/compose.yaml"
+    },
+    {
+      "id": "infra-nginx",
+      "role": 1,
+      "tasks": [
+        "M01"
+      ],
+      "path": "infra/nginx.conf",
+      "kind": "file",
+      "template": "starter/templates/nginx.conf"
+    },
+    {
+      "id": "api-albums",
+      "role": 3,
+      "tasks": [
+        "M02"
+      ],
+      "path": "backend/app/routers/albums.py",
+      "kind": "python",
+      "symbols": "*"
+    },
+    {
+      "id": "api-people",
+      "role": 3,
+      "tasks": [
+        "M03"
+      ],
+      "path": "backend/app/routers/people.py",
+      "kind": "python",
+      "symbols": "*"
+    },
+    {
+      "id": "api-photos",
+      "role": 3,
+      "tasks": [
+        "M04",
+        "M06",
+        "M07",
+        "M08",
+        "M12",
+        "M16"
+      ],
+      "path": "backend/app/routers/photos.py",
+      "kind": "python",
+      "symbols": "*"
+    },
+    {
+      "id": "api-analysis",
+      "role": 3,
+      "tasks": [
+        "M05",
+        "M14"
+      ],
+      "path": "backend/app/routers/analysis.py",
+      "kind": "python",
+      "symbols": "*"
+    },
+    {
+      "id": "api-groups",
+      "role": 3,
+      "tasks": [
+        "M15"
+      ],
+      "path": "backend/app/routers/groups.py",
+      "kind": "python",
+      "symbols": "*"
+    },
+    {
+      "id": "upload-jobs",
+      "role": 3,
+      "tasks": [
+        "M04",
+        "M05"
+      ],
+      "path": "backend/app/photo_operations.py",
+      "kind": "python",
+      "symbols": [
+        "upload_photo",
+        "queue_failed_analysis"
+      ]
+    },
+    {
+      "id": "worker-publish",
+      "role": 3,
+      "tasks": [
+        "M05",
+        "M08"
+      ],
+      "path": "backend/app/worker.py",
+      "kind": "python",
+      "symbols": [
+        "_apply_result",
+        "process_claim"
+      ]
+    },
+    {
+      "id": "vision",
+      "role": 4,
+      "tasks": [
+        "M03",
+        "M05"
+      ],
+      "path": "backend/app/analysis.py",
+      "kind": "python",
+      "symbols": "*"
+    },
+    {
+      "id": "face-grouping",
+      "role": 4,
+      "tasks": [
+        "M15"
+      ],
+      "path": "backend/app/grouping.py",
+      "kind": "python",
+      "symbols": "*"
+    },
+    {
+      "id": "metadata-quality",
+      "role": 4,
+      "tasks": [
+        "M13",
+        "M14"
+      ],
+      "path": "backend/app/image_service.py",
+      "kind": "python",
+      "symbols": [
+        "_metadata",
+        "quality_metrics",
+        "similar_groups"
+      ]
+    },
+    {
+      "id": "location",
+      "role": 4,
+      "tasks": [
+        "M13"
+      ],
+      "path": "backend/app/worker.py",
+      "kind": "python",
+      "symbols": [
+        "reverse_geocode"
+      ]
+    },
+    {
+      "id": "api-versions",
+      "role": 5,
+      "tasks": [
+        "M09",
+        "M10",
+        "M11",
+        "M12"
+      ],
+      "path": "backend/app/routers/versions.py",
+      "kind": "python",
+      "symbols": "*"
+    },
+    {
+      "id": "api-collaboration",
+      "role": 5,
+      "tasks": [
+        "M17"
+      ],
+      "path": "backend/app/routers/collaboration.py",
+      "kind": "python",
+      "symbols": "*"
+    },
+    {
+      "id": "approval-policy",
+      "role": 5,
+      "tasks": [
+        "M08",
+        "M11",
+        "M17"
+      ],
+      "path": "backend/app/services.py",
+      "kind": "python",
+      "symbols": [
+        "invalidate_photo_reviews",
+        "invalidate_person_reviews",
+        "approval_state",
+        "notify_after_commit"
+      ]
+    },
+    {
+      "id": "image-editing",
+      "role": 5,
+      "tasks": [
+        "M09",
+        "M12"
+      ],
+      "path": "backend/app/image_service.py",
+      "kind": "python",
+      "symbols": [
+        "_settings",
+        "render_image",
+        "render_cache_key"
+      ]
+    },
+    {
+      "id": "version-download",
+      "role": 5,
+      "tasks": [
+        "M12"
+      ],
+      "path": "backend/app/media.py",
+      "kind": "python",
+      "symbols": [
+        "version_file_response"
+      ]
+    },
+    {
+      "id": "ui-albums",
+      "role": 2,
+      "tasks": [
+        "M02"
+      ],
+      "path": "frontend/src/features/albums/AlbumHome.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-album-forms",
+      "role": 2,
+      "tasks": [
+        "M02"
+      ],
+      "path": "frontend/src/features/albums/AlbumForms.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-library",
+      "role": 2,
+      "tasks": [
+        "M06",
+        "M16"
+      ],
+      "path": "frontend/src/features/library/Library.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-photo-info",
+      "role": 2,
+      "tasks": [
+        "M07",
+        "M08"
+      ],
+      "path": "frontend/src/features/library/PhotoInfo.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-upload",
+      "role": 2,
+      "tasks": [
+        "M04"
+      ],
+      "path": "frontend/src/Upload.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-people",
+      "role": 2,
+      "tasks": [
+        "M03",
+        "M08"
+      ],
+      "path": "frontend/src/People.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-album-settings",
+      "role": 2,
+      "tasks": [
+        "M02"
+      ],
+      "path": "frontend/src/AlbumSettings.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-analysis",
+      "role": 2,
+      "tasks": [
+        "M05"
+      ],
+      "path": "frontend/src/AnalysisStatus.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-recommendations",
+      "role": 2,
+      "tasks": [
+        "M14"
+      ],
+      "path": "frontend/src/features/curation/Recommendations.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-groups",
+      "role": 2,
+      "tasks": [
+        "M15"
+      ],
+      "path": "frontend/src/features/curation/Groups.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-editor",
+      "role": 5,
+      "tasks": [
+        "M09",
+        "M10",
+        "M11",
+        "M12"
+      ],
+      "path": "frontend/src/Editor.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    },
+    {
+      "id": "ui-board",
+      "role": 5,
+      "tasks": [
+        "M17"
+      ],
+      "path": "frontend/src/features/collaboration/Board.tsx",
+      "kind": "typescript",
+      "symbols": "*"
+    }
+  ],
+  "provided_foundation": [
+    "Authentication, CSRF and membership/locking helpers",
+    "DB models, migrations, request/response schemas and serializers",
+    "Storage adapters, image decoding/limits and worker leases",
+    "Application shell, design assets/styles and API client",
+    "Fixtures, tests, contract generator, integration/recovery runners"
+  ],
+  "external_gates": [
+    "AWS EC2/S3/RDS deployment and restore",
+    "Real-photo accuracy and 2000-photo throughput/cost",
+    "Remote multi-device acceptance",
+    "Contest prewritten-code/tool rules and team GitHub ownership"
+  ],
+  "role_checks": {
+    "1": [
+      "docker compose config --quiet",
+      "# Docker full-stack E2E/restart: CI compose 작업 전체 실행",
+      "python scripts/verify_backup_restore.py"
+    ],
+    "2": [
+      "npm --prefix frontend run types:check",
+      "npm --prefix frontend run build",
+      "python scripts/run_integration.py"
+    ],
+    "3": [
+      "python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py backend/tests/test_analysis_worker.py",
+      "python scripts/run_integration.py"
+    ],
+    "4": [
+      "python -m pytest -q backend/tests/test_analysis_worker.py backend/tests/test_image_rendering.py backend/tests/test_aws_validation.py",
+      "python scripts/run_integration.py"
+    ],
+    "5": [
+      "python -m pytest -q backend/tests/test_image_rendering.py backend/tests/test_api_integration.py",
+      "npm --prefix frontend run build",
+      "python scripts/run_integration.py"
+    ]
+  }
+}

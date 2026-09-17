@@ -1,0 +1,4 @@
+# ZZIK_STARTER:infra-compose — M01 / 담당 1
+# db, migrate, api, worker, web; private DB/app, shared photo volume, readiness dependencies.
+name: zzik-starter
+services: {}

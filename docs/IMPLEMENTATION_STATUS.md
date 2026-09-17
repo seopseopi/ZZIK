@@ -156,3 +156,7 @@ npm --prefix frontend run test:e2e
 - OpenAPI → `frontend/src/generated/api.d.ts` → 화면 타입을 연결했다. `types:check`가 생성 파일 누락/불일치를 검사한다. 생성기는 TypeScript 5 요구를 별도 도구 패키지에 격리하여 프론트 TypeScript 7을 유지한다.
 - 실제 DB 응답과 기존 serializer 결과 비교, nullable/누락·작성자·동적 품질 값·오류 처리 검사를 추가했다. 일반/체험판 빌드와 생성 타입 일치 검사를 통과했다. 기존 IndexedDB 자료의 기본값 보충 E2E도 추가했다. 전체 CI 확정 결과는 이번 PR Checks에서 확인한다.
 - [사용법·범위](../contracts/README.md). 요청 URL에서 타입을 자동 추론하는 전체 SDK나 브라우저 런타임 JSON 검증기는 아니다. 대회용 starter 및 AWS 저장·배포 검증은 별도 후속 단계다.
+
+## 로컬 조립 연습 준비
+
+[역할별 starter](../starter/README.md)는 `2ffb4a9`를 기준으로 5개 역할·M01~M17·30개 구현 단위를 내보낸다. 전체/역할별 프로필, 인계 프롬프트, 미구현·보호 파일 검사, 별도 학습자 CI를 제공한다. 기준 구현 복원은 기계적 왕복 검사이며 5명의 독립 재구현이나 AWS 운영 검증을 대신하지 않는다. 최종 대회 사용은 사전 코드 규정 확인 후 결정한다.
