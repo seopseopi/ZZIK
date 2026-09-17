@@ -1,0 +1,58 @@
+{
+  "scope": "local_git_coordination_with_minimal_fixture",
+  "simulated_roles": 5,
+  "independent_agents": false,
+  "github_accounts_or_reviews_executed": false,
+  "full_zzik_implementation": false,
+  "aws_calls": 0,
+  "git_commands_and_checks": 159,
+  "asserted_scenarios": 13,
+  "events": [
+    {
+      "check": "five_separate_clones_start_without_commits",
+      "roles": 5
+    },
+    {
+      "check": "role3_waits_for_root_commit"
+    },
+    {
+      "check": "G1_has_explicit_shared_commit_and_real_contract_tests",
+      "commit": "774ee6dd208bd4b111b15bb4188b2924dcd51039"
+    },
+    {
+      "check": "all_roles_branch_from_same_G1_commit"
+    },
+    {
+      "check": "role_branch_cannot_claim_full_integration_without_other_roles"
+    },
+    {
+      "check": "shared_file_conflict_reproduced_and_both_changes_preserved"
+    },
+    {
+      "check": "contract_regression_blocks_final_base_update",
+      "candidate": "30a3adfdfab6289e3c7dcd0494918d7441297cd5"
+    },
+    {
+      "check": "author_fix_merged_and_old_review_head_invalidated",
+      "head": "3c8e6c1a66f3707633af4e8fcc537fc669994037"
+    },
+    {
+      "check": "fresh_coordinator_session_resumes_exact_remote_candidate"
+    },
+    {
+      "check": "base_change_requires_candidate_refresh_and_review"
+    },
+    {
+      "check": "refreshed_candidate_retested",
+      "head": "2cba16b48172ae38e7788c94e30880b683da238a"
+    },
+    {
+      "check": "all_five_role_commit_histories_preserved_in_final_base"
+    },
+    {
+      "check": "stale_role_push_rejected_without_overwriting_final_base"
+    }
+  ],
+  "final_commit": "e001b8274a74a1a465063c6378a2ffa385efb7d2",
+  "verification_script_sha256": "eff862b37816d52abc889f403631be5b9f25a01c7fd2e4ac79c139157500d883"
+}

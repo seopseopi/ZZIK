@@ -1,0 +1,10 @@
+{
+  "scope": "local_persisted_message_state_model",
+  "command": "python3 scripts/verify_role_messages.py",
+  "tests_passed": 12,
+  "failures": 0,
+  "independent_ai_sessions": false,
+  "github_transport_executed": false,
+  "auto_wakeup_implemented": false,
+  "script_sha256": "9bac65031cfbd84d3f7b4482959aa885527b1b174bf044c750f845ed3ebfeae7"
+}
