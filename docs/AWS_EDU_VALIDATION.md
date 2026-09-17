@@ -15,6 +15,31 @@
 
 콘솔 성공은 서비스 연결 가능성을 확인한다. **현재 앱의 설정은 local/fixture를 유지**하며 AWS 기반 서비스 배포가 완료된 상태는 아니다. `DetectLabels`, EC2 역할의 Rekognition 권한, 인물 컬렉션은 별도 검증이 필요하다. 생성 이미지는 여행 실사진의 정확도·성능 평가에 사용하지 않는다.
 
+## 로컬 임시 인증 연결 확인
+
+사용자 요청으로 AWS CLI 2.36.45를 설치하고 공식 `aws login --remote` 흐름으로 `zzik-edu` 프로필을 연결했다. CLI의 STS 호출에서 제공받은 계정과 IAM 사용자가 일치함을 확인했다. 새 액세스 키나 IAM 정책을 만들지 않았다.
+
+프로젝트 Python 환경에서는 로그인 공급자의 추가 의존성이 없어 직접 로딩 시 `MissingDependencyException`이 발생했다. 앱 의존성을 바꾸지 않고 AWS 공식 문서의 `credential_process` 방식으로 로컬 `zzik-sdk` 프로필을 추가했다. 실제 프로젝트 가상환경의 Boto3에서 STS 계정·사용자 일치까지 확인했다. 비밀번호·일회성 인증 코드·임시 키·실제 계정 ID는 저장소에 기록하지 않는다.
+
+```sh
+# 로그인 세션이 만료되면 같은 프로필로 다시 인증한다.
+aws login --remote --profile zzik-edu --region us-east-1
+# 로컬 프로필의 연결 구조; 실제 키를 config에 직접 넣지 않는다.
+aws configure set credential_process 'aws configure export-credentials --profile zzik-edu --format process' --profile zzik-sdk
+aws configure set region us-east-1 --profile zzik-sdk
+```
+
+이 기기에서는 credential_process의 AWS CLI 경로를 절대 경로로 설정했다. 다른 기기에서는 해당 AWS CLI 설치 경로와 프로필 충돌 여부를 확인한다. 로컬 SDK 실행은 `AWS_PROFILE=zzik-sdk`로 프로필을 선택할 수 있다. 현재 앱의 저장/분석 모드는 바꾸지 않았다. 이 로그인은 IAM 사용자 인증이므로 EC2 역할 검증을 대신하지 않으며, 컨테이너 실행기에 호스트 인증을 전달하지 않는다. [AWS 공식 로그인·SDK 연결 안내](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sign-in.html).
+
+같은 인증으로 북버지니아에서 **조회만** 수행한 결과:
+
+- EC2 `Name` 태그가 본인 IAM 사용자 이름으로 시작하는 인스턴스: 0개.
+- 같은 리전에서 본인 IAM 사용자 이름으로 시작하는 S3 버킷: 0개.
+- 교육 실습 안내의 본인 사용자 이름과 같은 인스턴스 프로파일: `NoSuchEntity`.
+- 이전 안내의 `SafeInstanceProfile-<IAM_USERNAME>` 조회: 명시적 권한 거부. 존재하지 않는다고 판단하지 않는다.
+
+다른 이름·다른 리전의 자원 존재 여부까지 확인한 결과는 아니다. 새 AWS 자원 생성 보류를 유지하므로 실제 S3 저장·역할 기반 분석은 아직 실행하지 않았다.
+
 ## 교육 계정에 적용할 조건
 
 사용자가 제공한 교육 안내를 2026-09-17에 읽고 정리한 범위다. 이후 전달받은 강사 메시지는 **Kiro·AWS 사용법 교육 당시의 실습 안내**라고 사용자가 명확히 했다. 아래 조건은 실제 대회 배포 기준이 아니다. 공지의 실제 게시 날짜와 대회 환경은 확인되지 않았다.
@@ -23,7 +48,7 @@
 - EC2 AMI: `nxtcloud-ami-v`로 시작하는 지정 이미지. 임의 Ubuntu/Amazon Linux AMI로 대체하지 않는다.
 - EC2 인스턴스·프로필: 앞서 받은 교육 문서는 `t3.nano`~`t3.small`과 `SafeInstanceProfile-<IAM_USERNAME>`을, 추가 전달된 사용법 실습은 `m5.large`와 `<IAM_USERNAME>` 프로필을 안내한다. 서로 다른 안내의 적용 범위가 확정되지 않았으므로 어느 쪽도 대회 설정으로 고정하지 않는다.
 - Lambda 등 비 EC2: 기존 `SafeRole-<IAM_USERNAME>` 사용. 신규 IAM 역할을 만들지 않는다.
-- **액세스 키 발급 금지.** 콘솔 비밀번호는 SDK 자격 증명이 아니다. 이 계정의 검증기는 지정 역할이 붙은 AWS 실행 환경에서 실행한다. 로컬 `aws configure` 또는 GitHub Secrets에 장기 키를 넣는 절차를 안내하지 않는다.
+- **액세스 키 발급 금지.** 콘솔 비밀번호를 SDK 키로 직접 사용할 수 없다. 로컬에서는 위의 공식 임시 로그인 프로필을 확인했고, EC2 검증 컨테이너는 지정 역할이 붙은 AWS 실행 환경에서 실행한다. 로컬 `aws configure` 또는 GitHub Secrets에 장기 키를 넣는 절차를 안내하지 않는다.
 - S3 이름은 자기 IAM 사용자 이름으로 시작해야 한다. Block Public Access를 유지하고 다른 교육생의 리소스를 수정하지 않는다.
 - 안내 허용 목록: EC2, Lambda, RDS, DynamoDB, S3, API Gateway, Amplify, SQS, SNS; Bedrock은 안내된 미국 리전 사용. Rekognition은 목록에 없지만 이번 콘솔 `DetectFaces`/`CompareFaces`는 성공했다. EC2 역할에서의 실행 권한은 별도 확인한다.
 - ELB/ASG, CloudFront, ACM, Route53, Cognito, 새 private subnet/라우팅 테이블/VPC endpoint 등은 이 교육 환경의 배포 전제로 삼지 않는다.

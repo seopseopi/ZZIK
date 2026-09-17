@@ -146,6 +146,17 @@ jobs:
           assert result['plan']['rekognition_calls_upper_bound'] == 7
           assert result['aws_requested'] is False and result['rekognition_calls'] == 0
           PY
+      - name: Verify custom-region plan without network
+        run: |
+          ZZIK_VALIDATION_SCOPE=custom ZZIK_VALIDATION_REGION=ap-northeast-2 bash scripts/aws_validation_container.sh plan
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          reports = [json.loads(p.read_text()) for p in Path('data/aws-validation/reports').glob('*.json')]
+          assert len(reports) == 2
+          assert {r['plan']['region'] for r in reports} == {'us-east-1', 'ap-northeast-2'}
+          assert all(r['status'] == 'planned' and not r['aws_requested'] and r['rekognition_calls'] == 0 for r in reports)
+          PY
       - name: Verify Nginx to API to PostgreSQL and seed
         run: |
           curl --fail --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 90 http://127.0.0.1:8080/api/health/ready

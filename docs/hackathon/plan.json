@@ -163,7 +163,7 @@
         ".venv/bin/python scripts/check_harness.py",
         ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
       ],
-      "current_status": "로컬·Docker Compose E2E/재시작 검증됨; EC2 역할 검증용 컨테이너 키트 준비, AWS 3-Tier 실배포 미검증",
+      "current_status": "로컬·Docker Compose E2E/재시작 검증됨; 교육/별도 계정 설정과 읽기 전용 AWS 사전 점검 구현, 실제 역할·S3·분석·3-Tier 배포는 미검증",
       "external_evidence": "계정·리전·예산·리소스 및 HTTPS 설정 필요. 실제 연결 기록과 배포 커밋을 남긴다."
     },
     {

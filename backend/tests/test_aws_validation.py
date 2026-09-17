@@ -221,7 +221,7 @@ def test_live_runner_uses_real_adapter_contract_without_context_manager_clients(
         def get_caller_identity(self): return {'Account': 'SECRET_ACCOUNT'}
         def close(self): closed.append(self.service)
     monkeypatch.setattr(boto3, 'Session', lambda **kw: SimpleNamespace(client=lambda service, **kw: Client(service)))
-    monkeypatch.setattr(check, 'storage_probe', lambda *a: {'status': 'passed', 'cleanup': 'passed'})
+    monkeypatch.setattr(check, 'storage_probe', lambda *a, **kw: {'status': 'passed', 'cleanup': 'passed'})
     def reference(*a):
         assert analysis.settings.face_analysis_provider == 'rekognition'
         assert analysis.settings.aws_region == 'us-east-1'
@@ -288,7 +288,7 @@ def test_correct_instance_role_reaches_storage(dataset, monkeypatch, capsys):
     monkeypatch.setattr(boto3, 'Session', lambda **kw: SimpleNamespace(
         get_credentials=lambda: SimpleNamespace(method='iam-role'), client=lambda *a, **kw: Client()))
     calls = []
-    def storage_probe(*a):
+    def storage_probe(*a, **kw):
         calls.append(True)
         return {'status': 'failed', 'code': 'TEST_STORAGE_STOP', 'cleanup': 'not_needed'}
     monkeypatch.setattr(check, 'storage_probe', storage_probe)
@@ -297,3 +297,87 @@ def test_correct_instance_role_reaches_storage(dataset, monkeypatch, capsys):
     report = json.loads(capsys.readouterr().out)
     assert report['identity_verified'] and report['instance_role_verified'] and calls == [True]
     assert '123456789012' not in json.dumps(report)
+
+
+def test_preflight_reads_only_identity_and_bucket_metadata(dataset, monkeypatch, capsys):
+    from botocore.stub import Stubber
+    account = '123456789012'
+    with closing(boto3.client('sts', region_name='us-east-1', aws_access_key_id='TEST', aws_secret_access_key='TEST')) as sts, \
+         closing(boto3.client('s3', region_name='us-east-1', aws_access_key_id='TEST', aws_secret_access_key='TEST')) as s3, \
+         Stubber(sts) as identity, Stubber(s3) as bucket:
+        identity.add_response('get_caller_identity', {'Account': account,
+            'Arn': f'arn:aws:sts::{account}:assumed-role/AssignedRole/test'}, {})
+        expected = {'Bucket': 'team-test-bucket', 'ExpectedBucketOwner': account}
+        bucket.add_response('get_bucket_location', {'LocationConstraint': 'ap-northeast-2'}, expected)
+        bucket.add_response('get_public_access_block', {'PublicAccessBlockConfiguration': dict.fromkeys(
+            ['BlockPublicAcls', 'IgnorePublicAcls', 'BlockPublicPolicy', 'RestrictPublicBuckets'], True)}, expected)
+        bucket.add_response('get_bucket_versioning', {}, expected)
+        services = []
+        def client(service, **kw):
+            services.append(service)
+            return {'sts': sts, 's3': s3}[service]
+        monkeypatch.setattr(boto3, 'Session', lambda **kw: SimpleNamespace(
+            get_credentials=lambda: SimpleNamespace(method='iam-role'), client=client))
+        monkeypatch.setattr(check, 'storage_probe', lambda *a, **kw: pytest.fail('Preflight attempted object writes'))
+        monkeypatch.setattr(analysis, 'validate_reference', lambda *a: pytest.fail('Preflight uploaded reference'))
+        monkeypatch.setattr(analysis, 'analyze', lambda *a: pytest.fail('Preflight analyzed photos'))
+        assert check.main(['--manifest', str(dataset[0]), '--preflight', '--bucket', 'team-test-bucket',
+                           '--region', 'ap-northeast-2', '--expected-role', 'AssignedRole',
+                           '--expected-account', account]) == 0
+        output = capsys.readouterr().out
+        report = json.loads(output)
+        assert report['mode'] == 'preflight' and report['status'] == 'preflight_passed'
+        assert report['identity_verified'] and report['account_verified'] and report['instance_role_verified']
+        assert report['bucket_configuration']['owner_verified']
+        assert report['storage']['status'] == 'not_tested'
+        assert report['rekognition_calls'] == 0 and not report['photo_analysis_verified'] and report['aws_requested']
+        assert account not in output and 'arn:aws:' not in output
+        assert services == ['sts', 's3']
+        identity.assert_no_pending_responses()
+        bucket.assert_no_pending_responses()
+
+
+@pytest.mark.parametrize('mode', ['--preflight', '--execute'])
+def test_wrong_account_blocks_storage_even_with_matching_role(dataset, monkeypatch, capsys, mode):
+    class Identity:
+        def get_caller_identity(self):
+            return {'Account': '999999999999', 'Arn': 'arn:aws:sts::999999999999:assumed-role/AssignedRole/test'}
+        def close(self): pass
+    def client(service, **kw):
+        assert service == 'sts', 'Wrong account reached S3'
+        return Identity()
+    monkeypatch.setattr(boto3, 'Session', lambda **kw: SimpleNamespace(
+        get_credentials=lambda: SimpleNamespace(method='iam-role'), client=client))
+    assert check.main(['--manifest', str(dataset[0]), mode, '--bucket', 'team-test-bucket',
+                       '--expected-role', 'AssignedRole', '--expected-account', '123456789012']) == 1
+    output = capsys.readouterr().out
+    assert json.loads(output)['code'] == 'AWS_ACCOUNT_MISMATCH'
+    assert '999999999999' not in output and '123456789012' not in output
+
+
+@pytest.mark.parametrize('case,code', [('region', 'BUCKET_REGION_MISMATCH'),
+    ('public', 'BUCKET_PUBLIC_ACCESS_BLOCK_REQUIRED'), ('versioning', 'UNVERSIONED_TEST_BUCKET_REQUIRED'),
+    ('owner', 'AWS_AccessDenied')])
+def test_bucket_configuration_failure_prevents_writes(case, code):
+    class Bucket(FakeS3):
+        def get_bucket_location(self, **kw):
+            assert kw['ExpectedBucketOwner'] == '123456789012'
+            if case == 'owner':
+                raise ClientError({'Error': {'Code': 'AccessDenied'}}, 'GetBucketLocation')
+            return {'LocationConstraint': 'ap-northeast-2' if case == 'region' else None}
+        def get_public_access_block(self, **kw):
+            response = super().get_public_access_block(**kw)
+            if case == 'public': response['PublicAccessBlockConfiguration']['BlockPublicPolicy'] = False
+            return response
+    bucket = Bucket(versioning='Enabled' if case == 'versioning' else None)
+    result = check.storage_probe(bucket, 'team-test-bucket', 'us-east-1',
+                                {'data': b'original', 'mime': 'image/png'}, 'test', expected_account='123456789012')
+    assert result['status'] == 'failed' and result['code'] == code
+    assert result['cleanup'] == 'not_needed' and not bucket.events
+
+
+def test_preflight_and_execute_cannot_be_combined(dataset, monkeypatch):
+    monkeypatch.setattr(boto3, 'Session', lambda **kw: pytest.fail('Invalid mode reached AWS'))
+    with pytest.raises(SystemExit) as error:
+        check.main(['--manifest', str(dataset[0]), '--preflight', '--execute'])
+    assert error.value.code == 2

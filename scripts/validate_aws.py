@@ -115,7 +115,25 @@ def safe_aws_code(code, fallback):
     return fallback
 
 
-def storage_probe(client, bucket, region, photo, run_id):
+def check_bucket(client, bucket, region, expected_account=None):
+    """Read bucket configuration only; no object access or mutation."""
+    params = {'Bucket': bucket}
+    if expected_account:
+        params['ExpectedBucketOwner'] = expected_account
+    location = client.get_bucket_location(**params).get('LocationConstraint')
+    actual_region = {'EU': 'eu-west-1', None: 'us-east-1'}.get(location, location)
+    require(actual_region == region, 'BUCKET_REGION_MISMATCH')
+    public = client.get_public_access_block(**params)['PublicAccessBlockConfiguration']
+    require(all(public.get(name) is True for name in (
+        'BlockPublicAcls', 'IgnorePublicAcls', 'BlockPublicPolicy', 'RestrictPublicBuckets'
+    )), 'BUCKET_PUBLIC_ACCESS_BLOCK_REQUIRED')
+    versioning = client.get_bucket_versioning(**params)
+    require(not versioning.get('Status'), 'UNVERSIONED_TEST_BUCKET_REQUIRED')
+    return {'status': 'passed', 'region_verified': True, 'public_access_block_verified': True,
+            'unversioned_verified': True, 'owner_verified': bool(expected_account)}
+
+
+def storage_probe(client, bucket, region, photo, run_id, *, expected_account=None):
     """Verify one original through the production adapter; never sweep a prefix."""
     import httpx
 
@@ -123,15 +141,7 @@ def storage_probe(client, bucket, region, photo, run_id):
     store = S3Storage(bucket, client=client, prefix=f'zzik-validation/{run_id}')
     key, attempted = 'original', False
     try:
-        location = client.get_bucket_location(Bucket=bucket).get('LocationConstraint')
-        actual_region = {'EU': 'eu-west-1', None: 'us-east-1'}.get(location, location)
-        require(actual_region == region, 'BUCKET_REGION_MISMATCH')
-        public = client.get_public_access_block(Bucket=bucket)['PublicAccessBlockConfiguration']
-        require(all(public.get(name) is True for name in (
-            'BlockPublicAcls', 'IgnorePublicAcls', 'BlockPublicPolicy', 'RestrictPublicBuckets'
-        )), 'BUCKET_PUBLIC_ACCESS_BLOCK_REQUIRED')
-        versioning = client.get_bucket_versioning(Bucket=bucket)
-        require(not versioning.get('Status'), 'UNVERSIONED_TEST_BUCKET_REQUIRED')
+        check_bucket(client, bucket, region, expected_account)
         require(not store.exists(key), 'VALIDATION_KEY_ALREADY_EXISTS')
         attempted = True  # A timed-out PUT may still have created the object.
         store.put(key, photo['data'], photo['mime'])
@@ -188,7 +198,7 @@ def summarize(rows):
     }
 
 
-def execute(refs, photos, bucket, region, report, *, expected_role=None):
+def execute(refs, photos, bucket, region, report, *, expected_role=None, expected_account=None, preflight=False):
     import boto3
     from botocore.config import Config
 
@@ -201,6 +211,9 @@ def execute(refs, photos, bucket, region, report, *, expected_role=None):
     # This does not require ListCollections, which is unrelated to reference matching.
     with closing(session.client('sts', config=config)) as identity:
         caller = identity.get_caller_identity()
+    if expected_account:
+        require(caller.get('Account') == expected_account, 'AWS_ACCOUNT_MISMATCH')
+        report['account_verified'] = True
     if expected_role:
         arn = caller.get('Arn', '').split(':', 5)
         resource = arn[5].split('/') if len(arn) == 6 else []
@@ -210,7 +223,12 @@ def execute(refs, photos, bucket, region, report, *, expected_role=None):
         report['instance_role_verified'] = True
     report['identity_verified'] = True
     with closing(session.client('s3', config=config.merge(Config(signature_version='s3v4')))) as client:
-        report['storage'] = storage_probe(client, bucket, region, photos[0], report['run_id'])
+        if preflight:
+            report['bucket_configuration'] = check_bucket(client, bucket, region, expected_account)
+            report.update(status='preflight_passed', storage={'status': 'not_tested', 'cleanup': 'not_needed'})
+            return
+        report['storage'] = storage_probe(client, bucket, region, photos[0], report['run_id'],
+                                          expected_account=expected_account)
     if report['storage']['status'] != 'passed':
         return
     with live_settings(region):
@@ -246,12 +264,15 @@ def execute(refs, photos, bucket, region, report, *, expected_role=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest', type=Path, required=True)
-    parser.add_argument('--execute', action='store_true', help='Send dataset images to existing AWS services; default only checks local inputs.')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--execute', action='store_true', help='Send dataset images to existing AWS services; default only checks local inputs.')
+    mode.add_argument('--preflight', action='store_true', help='Read identity and bucket configuration only; no uploads or Rekognition calls.')
     parser.add_argument('--bucket', default=settings.s3_bucket)
     parser.add_argument('--region', default=settings.aws_region)
     parser.add_argument('--max-calls', type=int, default=200, help='Maximum planned Rekognition calls, not a dollar budget.')
     parser.add_argument('--report', type=Path, help='Optional local report; never contains signed URLs or credential values.')
     parser.add_argument('--expected-role', help='Require EC2 metadata credentials and this STS role name before any S3/analysis calls.')
+    parser.add_argument('--expected-account', help='Require this 12-digit AWS account and bucket owner before storage/analysis.')
     args = parser.parse_args(argv)
     report = None
     try:
@@ -275,16 +296,19 @@ def main(argv=None):
         print(json.dumps(failure, ensure_ascii=False))
         return 1
     print(rendered, end='')
-    return 0 if report['status'] in {'planned', 'passed'} else 1
+    return 0 if report['status'] in {'planned', 'preflight_passed', 'passed'} else 1
 
 
 def run_validation(args):
     report = {'schema_version': 1, 'run_id': uuid.uuid4().hex, 'created_at': datetime.now(timezone.utc).isoformat(),
-              'status': 'blocked', 'mode': 'live' if args.execute else 'plan', 'aws_requested': args.execute,
+              'status': 'blocked', 'mode': 'live' if args.execute else 'preflight' if args.preflight else 'plan',
+              'aws_requested': args.execute or args.preflight,
               'photo_analysis_verified': False, 'rekognition_calls': 0, 'photos': []}
     try:
         if args.expected_role is not None:
             require(bool(re.fullmatch(r'[A-Za-z0-9+=,.@_-]{1,64}', args.expected_role)), 'EXPECTED_ROLE_INVALID')
+        if args.expected_account is not None:
+            require(bool(re.fullmatch(r'[0-9]{12}', args.expected_account)), 'EXPECTED_ACCOUNT_INVALID')
         refs, photos, kind = load_dataset(args.manifest)
         report['dataset_kind'] = kind
         planned_calls = len(refs) + len(photos) * (2 + len(refs))
@@ -292,9 +316,10 @@ def run_validation(args):
         require(bool(re.fullmatch(r'[a-z]{2}(?:-[a-z]+)+-\d+', args.region)), 'AWS_REGION_INVALID')
         report['plan'] = {'references': len(refs), 'photos': len(photos), 'rekognition_calls_upper_bound': planned_calls,
                           's3_objects': 1, 'region': args.region, 'bucket_configured': bool(args.bucket)}
-        if args.execute:
+        if args.execute or args.preflight:
             require(bool(args.bucket), 'S3_BUCKET_REQUIRED')
-            execute(refs, photos, args.bucket, args.region, report, expected_role=args.expected_role)
+            execute(refs, photos, args.bucket, args.region, report, expected_role=args.expected_role,
+                    expected_account=args.expected_account, preflight=args.preflight)
         else:
             report['status'] = 'planned'
     except Exception as exc:

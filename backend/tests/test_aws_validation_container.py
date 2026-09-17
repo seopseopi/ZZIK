@@ -64,3 +64,47 @@ def test_live_command_pins_region_role_and_call_limit(launcher):
     assert args[args.index('--max-calls') + 1] == '7'
     assert 'AWS_EC2_METADATA_V1_DISABLED=true' in args
     assert '--env-file' not in args and '-p' not in args and '--privileged' not in args
+
+
+@pytest.mark.parametrize('mode', ['preflight', 'execute'])
+def test_custom_environment_keeps_role_and_owner_checks(launcher, mode):
+    result = launcher(mode, ZZIK_VALIDATION_SCOPE='custom', ZZIK_VALIDATION_REGION='ap-northeast-2',
+                      ZZIK_VALIDATION_BUCKET='team-zzik-test', ZZIK_EXPECTED_ROLE='TeamRole',
+                      ZZIK_EXPECTED_ACCOUNT='123456789012')
+    assert result.returncode == 0
+    args = json.loads(result.stdout)
+    assert args[args.index('--region') + 1] == 'ap-northeast-2'
+    assert args[args.index('--expected-account') + 1] == '123456789012'
+    assert args[args.index('--expected-role') + 1] == 'TeamRole'
+    assert f'--{mode}' in args
+    if mode == 'preflight': assert '--execute' not in args
+    assert '--env-file' not in args and 'TEST_SECRET_NOT_TO_FORWARD' not in result.stdout
+
+
+@pytest.mark.parametrize('override', [
+    {'ZZIK_VALIDATION_SCOPE': 'unknown'}, {'ZZIK_VALIDATION_REGION': ''},
+    {'ZZIK_EXPECTED_ACCOUNT': ''}, {'ZZIK_EXPECTED_ACCOUNT': '123'},
+    {'ZZIK_EXPECTED_ROLE': ''}, {'ZZIK_VALIDATION_BUCKET': ''},
+    {'ZZIK_VALIDATION_SCOPE': 'education'},
+])
+def test_custom_missing_or_conflicting_scope_fails_before_docker(launcher, override):
+    values = dict(ZZIK_VALIDATION_SCOPE='custom', ZZIK_VALIDATION_REGION='ap-northeast-2',
+                  ZZIK_EXPECTED_ACCOUNT='123456789012', ZZIK_EXPECTED_ROLE='TeamRole',
+                  ZZIK_VALIDATION_BUCKET='team-zzik-test')
+    result = launcher('preflight', **{**values, **override})
+    assert result.returncode == 2 and not result.stdout
+
+
+def test_custom_plan_is_offline_without_live_credentials(launcher):
+    result = launcher('plan', ZZIK_VALIDATION_SCOPE='custom', ZZIK_VALIDATION_REGION='ap-northeast-2')
+    assert result.returncode == 0
+    args = json.loads(result.stdout)
+    assert args[args.index('--network') + 1] == 'none'
+    assert args[args.index('--region') + 1] == 'ap-northeast-2'
+    assert '--preflight' not in args and '--execute' not in args
+
+
+def test_education_preflight_still_requires_own_bucket(launcher):
+    result = launcher('preflight', ZZIK_IAM_USERNAME='kmuct-edu-05',
+                      ZZIK_VALIDATION_BUCKET='other-test', ZZIK_EXPECTED_ROLE='AssignedRole')
+    assert result.returncode == 2 and not result.stdout
