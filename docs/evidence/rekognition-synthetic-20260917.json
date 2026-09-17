@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "source_commit": "7d9e4e92cb602491ac95ed97af9a4271493d1fe2",
+  "executed_at": "2026-09-17T02:06:33.130179+00:00",
+  "region": "us-east-1",
+  "authentication": "temporary IAM user login via local SDK profile",
+  "dataset_kind": "synthetic",
+  "scope": "analysis_only",
+  "status": "analysis_passed",
+  "reference_count": 1,
+  "rekognition_calls": 6,
+  "planned_call_limit": 7,
+  "dataset_hashes": {
+    "person_a": "38731b53fbc562740d16ea1adf4030cd90eb72006ec93e2f91fc2b0eb661e55b",
+    "travel_pair": "f58fccca1fd1f6111129876e64ad9868c1c3739517429b77fe56a17b9827707a",
+    "no_faces": "1511a44f930cb5a957e27c0869d05828a6e8ba826c6ce1e740fc65140415a2a5"
+  },
+  "photos": [
+    {
+      "id": "travel_pair",
+      "expected_people": [
+        "person_a"
+      ],
+      "expected_face_count": 2,
+      "status": "completed",
+      "predicted_people": [
+        "person_a"
+      ],
+      "face_count": 2,
+      "unknown_faces": 1,
+      "elapsed_ms": 10911,
+      "tags": []
+    },
+    {
+      "id": "no_faces",
+      "expected_people": [],
+      "expected_face_count": 0,
+      "status": "completed",
+      "predicted_people": [],
+      "face_count": 0,
+      "unknown_faces": 0,
+      "elapsed_ms": 7442,
+      "tags": [
+        "바다"
+      ]
+    }
+  ],
+  "dataset_expectations_matched": true,
+  "not_verified": [
+    "S3 storage",
+    "EC2 instance role",
+    "API/worker/database end-to-end",
+    "face collections",
+    "real-photo accuracy",
+    "large-dataset throughput",
+    "reverse geocoding"
+  ]
+}

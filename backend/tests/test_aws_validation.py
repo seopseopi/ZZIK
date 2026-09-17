@@ -381,3 +381,71 @@ def test_preflight_and_execute_cannot_be_combined(dataset, monkeypatch):
     with pytest.raises(SystemExit) as error:
         check.main(['--manifest', str(dataset[0]), '--preflight', '--execute'])
     assert error.value.code == 2
+
+
+def test_analysis_only_plan_never_connects_to_aws(dataset, monkeypatch, capsys):
+    monkeypatch.setattr(boto3, 'Session', lambda **kw: pytest.fail('Offline plan reached AWS'))
+    assert check.main(['--manifest', str(dataset[0]), '--analysis-only', '--max-calls', '4']) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report['scope'] == 'analysis_only' and report['status'] == 'planned'
+    assert report['plan']['s3_objects'] == 0 and not report['aws_requested']
+
+
+@pytest.mark.parametrize('options,code', [
+    (['--analysis-only', '--execute'], 'EXPECTED_ACCOUNT_REQUIRED'),
+    (['--analysis-only', '--preflight'], 'ANALYSIS_ONLY_PREFLIGHT_UNSUPPORTED'),
+    (['--analysis-only', '--max-calls', '3'], 'CALL_BUDGET_EXCEEDED'),
+    (['--execute', '--bucket', ''], 'S3_BUCKET_REQUIRED'),
+])
+def test_analysis_scope_does_not_bypass_input_guards(dataset, monkeypatch, capsys, options, code):
+    monkeypatch.setattr(boto3, 'Session', lambda **kw: pytest.fail('Invalid inputs reached AWS'))
+    assert check.main(['--manifest', str(dataset[0]), *options]) == 1
+    assert json.loads(capsys.readouterr().out)['code'] == code
+
+
+@pytest.mark.parametrize('failure', [None, 'reference', 'photo', 'mismatch'])
+def test_analysis_only_does_not_access_s3_or_claim_storage_passed(dataset, monkeypatch, capsys, failure):
+    class Identity:
+        def get_caller_identity(self): return {'Account': '123456789012'}
+        def close(self): pass
+    def client(service, **kw):
+        assert service == 'sts', 'Analysis-only must not create an S3 client'
+        return Identity()
+    monkeypatch.setattr(boto3, 'Session', lambda **kw: SimpleNamespace(client=client))
+    def reference(*args):
+        assert analysis.settings.face_analysis_provider == 'rekognition'
+        if failure == 'reference':
+            raise analysis.AnalysisError('AWS_AccessDeniedException', 'private SDK message', calls=1)
+        return {'calls': 1}
+    def analyze(*args):
+        assert analysis.settings.face_analysis_provider == 'rekognition'
+        if failure == 'photo':
+            raise analysis.AnalysisError('AWS_AccessDeniedException', 'private SDK message', calls=1)
+        return {'provider': 'rekognition', 'mode': 'live', 'calls': 3,
+                'faces': [{'person_id': None if failure == 'mismatch' else 'person_a'}],
+                'face_count': 1, 'unknown_faces': 1 if failure == 'mismatch' else 0,
+                'elapsed_ms': 12, 'tags': ['바다']}
+    monkeypatch.setattr(analysis, 'validate_reference', reference)
+    monkeypatch.setattr(analysis, 'analyze', analyze)
+    before = analysis.settings.face_analysis_provider, analysis.settings.aws_region
+    code = check.main(['--manifest', str(dataset[0]), '--analysis-only', '--execute',
+                       '--expected-account', '123456789012', '--max-calls', '4'])
+    report = json.loads(capsys.readouterr().out)
+    assert code == (0 if failure is None else 1)
+    assert report['storage'] == {'status': 'not_tested', 'reason': 'analysis_only', 'cleanup': 'not_needed'}
+    assert report['status'] == ('blocked' if failure == 'reference' else 'failed' if failure else 'analysis_passed')
+    assert (analysis.settings.face_analysis_provider, analysis.settings.aws_region) == before
+    if failure is None:
+        assert report['photos'][0]['tags'] == ['바다'] and report['rekognition_calls'] == 4
+
+
+def test_analysis_only_wrong_account_stops_before_image_upload(dataset, monkeypatch, capsys):
+    class Identity:
+        def get_caller_identity(self): return {'Account': '999999999999'}
+        def close(self): pass
+    monkeypatch.setattr(boto3, 'Session', lambda **kw: SimpleNamespace(client=lambda *a, **kw: Identity()))
+    monkeypatch.setattr(analysis, 'validate_reference', lambda *a: pytest.fail('Wrong account uploaded an image'))
+    assert check.main(['--manifest', str(dataset[0]), '--analysis-only', '--execute',
+                       '--expected-account', '123456789012']) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report['code'] == 'AWS_ACCOUNT_MISMATCH' and report['rekognition_calls'] == 0

@@ -13,7 +13,9 @@
 | 기존 S3 | 사용자 이름 접두사로 버킷 검색 시 0개 | 다른 사람의 버킷을 대신 사용하지 않음 |
 | 실행기 | 로컬 입력 검사 및 AWS 모의 응답 검사 통과 | 실제 역할 기반 실행, S3 저장·서명 다운로드는 아직 미검증 |
 
-콘솔 성공은 서비스 연결 가능성을 확인한다. **현재 앱의 설정은 local/fixture를 유지**하며 AWS 기반 서비스 배포가 완료된 상태는 아니다. `DetectLabels`, EC2 역할의 Rekognition 권한, 인물 컬렉션은 별도 검증이 필요하다. 생성 이미지는 여행 실사진의 정확도·성능 평가에 사용하지 않는다.
+콘솔 성공은 서비스 연결 가능성을 확인한다. **현재 앱의 설정은 local/fixture를 유지**하며 AWS 기반 서비스 배포가 완료된 상태는 아니다. 이 콘솔 검사에서는 `DetectLabels`, EC2 역할의 Rekognition 권한, 인물 컬렉션을 검증하지 않았다. 생성 이미지는 여행 실사진의 정확도·성능 평가에 사용하지 않는다.
+
+후속 검증에서는 로컬 IAM 사용자 인증으로 앱의 실제 분석 함수를 실행해 `DetectLabels`까지 확인했다. 아래 **S3 없이 분석만 검증하기**와 [실제 결과](AI_VALIDATION.md)를 따른다. 위 표는 이전 콘솔 확인 기록이다.
 
 ## 로컬 임시 인증 연결 확인
 
@@ -108,6 +110,30 @@ aws configure set region us-east-1 --profile zzik-sdk
   --manifest backend/fixtures/aws-validation/manifest.json \
   --region us-east-1 --max-calls 7
 ```
+
+### S3 없이 분석만 검증하기
+
+S3를 사용할 수 없을 때는 `--analysis-only`로 명시적으로 범위를 좁힌다. 기본 검증은 계속 S3 버킷을 요구하며, 저장 오류가 났다고 분석 전용으로 자동 전환하지 않는다. `--execute`가 없으면 입력만 검사하고 AWS에 접근하지 않는다.
+
+```sh
+# 오프라인 입력 검사
+.venv/bin/python scripts/validate_aws.py \
+  --manifest backend/fixtures/aws-validation/manifest.json \
+  --analysis-only --region us-east-1 --max-calls 7
+
+# 실제 이미지 전송·과금 가능한 분석 호출. 계정 ID를 실제 값으로 바꾼다.
+AWS_PROFILE=zzik-sdk .venv/bin/python scripts/validate_aws.py \
+  --manifest backend/fixtures/aws-validation/manifest.json \
+  --analysis-only --execute --expected-account YOUR_12_DIGIT_ACCOUNT_ID \
+  --region us-east-1 --max-calls 7 \
+  --report data/aws-validation/analysis-run-01.json
+```
+
+실행 전 STS 계정 일치를 확인하며 S3 클라이언트를 만들지 않는다. 성공 결과도 `analysis_passed`, `scope=analysis_only`, `storage.status=not_tested`로 전체 검증과 구분한다. 사진별 인물·얼굴 수·태그·처리 시간과 호출 수를 기록한다. `--preflight`는 버킷 설정 조회 기능이므로 `--analysis-only`와 함께 사용할 수 없다.
+
+2026-09-17 실제 실행은 기준 사진 1장·평가 사진 2장, Rekognition 6회로 성공했다. 두 사진의 얼굴 수·등록 인물은 정답과 일치했고 풍경 사진에서 `바다` 태그를 반환했다. [실행 커밋과 입력 해시](evidence/rekognition-synthetic-20260917.json). IAM 사용자 인증이며 EC2 역할·S3·DB·worker 전체 연결을 증명하지 않는다. 신규 AWS 자원은 생성하지 않았다.
+
+### S3와 분석을 함께 검증하기
 
 지정 역할이 연결된 AWS 실행 환경에서, 실제 검증 버킷 이름을 입력하고 실행한다:
 

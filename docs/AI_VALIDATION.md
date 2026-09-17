@@ -2,7 +2,17 @@
 
 ## 현재 AWS 확인 범위
 
-2026-09-17 `us-east-1` AWS 콘솔에서 생성 사진의 `DetectFaces`와 `CompareFaces` 호출에 성공했다. 기준 인물 1명 일치·다른 인물 1명 불일치를 확인했다. **콘솔 검사이며 앱의 EC2 역할·S3 연결 성공을 의미하지 않는다.** 자동 검증기와 제한 조건은 [AWS_EDU_VALIDATION.md](AWS_EDU_VALIDATION.md), 데이터와 생성 프롬프트는 [합성 검증 사진](../backend/fixtures/aws-validation/README.md)에 있다.
+2026-09-17 `us-east-1`에서 콘솔 검출·비교에 이어 **앱의 실제 `validate_reference`·`analyze` 함수로 합성 이미지 분석을 실행**했다. 로컬 임시 IAM 사용자 인증을 사용했고 `DetectFaces`·`CompareFaces`·`DetectLabels`가 총 6회 호출됐다. 결과는 `analysis_passed`다. S3 객체·EC2·컬렉션은 생성하지 않았다.
+
+| 합성 입력 | 실제 결과 |
+|---|---|
+| 기준 사진 1장 | 얼굴 1개, 기준 사진 검증 성공 |
+| 두 사람 여행 사진 | 얼굴 2개, 등록 인물 1명 일치·미등록 1명. 지원 장면 태그 없음, 처리 10,911ms |
+| 얼굴 없는 풍경 사진 | 얼굴 0개, 등록 인물 없음, `바다` 태그, 처리 7,442ms |
+
+두 평가 사진의 얼굴 수·등록 인물은 정답표와 일치했다. 표본이 작고 합성 이미지이므로 일반적인 인식 정확도나 처리량으로 해석하지 않는다. 태그는 관측 결과이며 라벨 정확도를 평가한 것은 아니다. 처리 시간은 해당 실행의 전처리·인증·네트워크 영향을 포함한다. 사진 업로드 API→DB→worker 전체 경로, EC2 역할, S3, 자동 얼굴 컬렉션·역지오코딩은 아직 별도 검증이 필요하다.
+
+실행 커밋·입력 해시·정리된 결과는 [검증 근거 JSON](evidence/rekognition-synthetic-20260917.json)에 있다. 계정 ID·키·원시 SDK 응답·서명 URL은 포함하지 않았다. 실행기와 조건은 [AWS_EDU_VALIDATION.md](AWS_EDU_VALIDATION.md), 생성 프롬프트는 [합성 검증 사진](../backend/fixtures/aws-validation/README.md)에 있다.
 
 ## 기존 로컬 검증 범위
 

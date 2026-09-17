@@ -198,7 +198,8 @@ def summarize(rows):
     }
 
 
-def execute(refs, photos, bucket, region, report, *, expected_role=None, expected_account=None, preflight=False):
+def execute(refs, photos, bucket, region, report, *, expected_role=None, expected_account=None,
+            preflight=False, analysis_only=False):
     import boto3
     from botocore.config import Config
 
@@ -222,6 +223,12 @@ def execute(refs, photos, bucket, region, report, *, expected_role=None, expecte
                 and resource[1] == expected_role and bool(resource[2]), 'EC2_ROLE_MISMATCH')
         report['instance_role_verified'] = True
     report['identity_verified'] = True
+    if analysis_only:
+        report['storage'] = {'status': 'not_tested', 'reason': 'analysis_only', 'cleanup': 'not_needed'}
+        analyze_dataset(refs, photos, region, report)
+        if report['status'] == 'passed':
+            report['status'] = 'analysis_passed'
+        return
     with closing(session.client('s3', config=config.merge(Config(signature_version='s3v4')))) as client:
         if preflight:
             report['bucket_configuration'] = check_bucket(client, bucket, region, expected_account)
@@ -231,6 +238,11 @@ def execute(refs, photos, bucket, region, report, *, expected_role=None, expecte
                                           expected_account=expected_account)
     if report['storage']['status'] != 'passed':
         return
+    analyze_dataset(refs, photos, region, report)
+
+
+def analyze_dataset(refs, photos, region, report):
+    """Run the production analysis functions; no bucket, collection or DB writes."""
     with live_settings(region):
         for ref in refs:
             try:
@@ -247,7 +259,8 @@ def execute(refs, photos, bucket, region, report, *, expected_role=None, expecte
                 require(result['provider'] == 'rekognition' and result['mode'] == 'live', 'LIVE_PROVIDER_REQUIRED')
                 report['rekognition_calls'] += result['calls']
                 row.update(status='completed', predicted_people=sorted({face['person_id'] for face in result['faces'] if face['person_id']}),
-                           face_count=result['face_count'], unknown_faces=result['unknown_faces'], elapsed_ms=result['elapsed_ms'])
+                           face_count=result['face_count'], unknown_faces=result['unknown_faces'], elapsed_ms=result['elapsed_ms'],
+                           tags=result.get('tags', []))
             except analysis.AnalysisError as exc:
                 report['rekognition_calls'] += exc.calls
                 row.update(status='failed', code=error_code(exc))
@@ -267,6 +280,8 @@ def main(argv=None):
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--execute', action='store_true', help='Send dataset images to existing AWS services; default only checks local inputs.')
     mode.add_argument('--preflight', action='store_true', help='Read identity and bucket configuration only; no uploads or Rekognition calls.')
+    parser.add_argument('--analysis-only', action='store_true',
+                        help='Explicitly skip all S3 checks; --execute sends images to Rekognition. Requires --expected-account for live runs.')
     parser.add_argument('--bucket', default=settings.s3_bucket)
     parser.add_argument('--region', default=settings.aws_region)
     parser.add_argument('--max-calls', type=int, default=200, help='Maximum planned Rekognition calls, not a dollar budget.')
@@ -296,15 +311,17 @@ def main(argv=None):
         print(json.dumps(failure, ensure_ascii=False))
         return 1
     print(rendered, end='')
-    return 0 if report['status'] in {'planned', 'preflight_passed', 'passed'} else 1
+    return 0 if report['status'] in {'planned', 'preflight_passed', 'analysis_passed', 'passed'} else 1
 
 
 def run_validation(args):
     report = {'schema_version': 1, 'run_id': uuid.uuid4().hex, 'created_at': datetime.now(timezone.utc).isoformat(),
               'status': 'blocked', 'mode': 'live' if args.execute else 'preflight' if args.preflight else 'plan',
               'aws_requested': args.execute or args.preflight,
+              'scope': 'analysis_only' if args.analysis_only else 'storage_and_analysis',
               'photo_analysis_verified': False, 'rekognition_calls': 0, 'photos': []}
     try:
+        require(not (args.analysis_only and args.preflight), 'ANALYSIS_ONLY_PREFLIGHT_UNSUPPORTED')
         if args.expected_role is not None:
             require(bool(re.fullmatch(r'[A-Za-z0-9+=,.@_-]{1,64}', args.expected_role)), 'EXPECTED_ROLE_INVALID')
         if args.expected_account is not None:
@@ -315,11 +332,14 @@ def run_validation(args):
         require(1 <= args.max_calls <= 1000 and planned_calls <= args.max_calls, 'CALL_BUDGET_EXCEEDED')
         require(bool(re.fullmatch(r'[a-z]{2}(?:-[a-z]+)+-\d+', args.region)), 'AWS_REGION_INVALID')
         report['plan'] = {'references': len(refs), 'photos': len(photos), 'rekognition_calls_upper_bound': planned_calls,
-                          's3_objects': 1, 'region': args.region, 'bucket_configured': bool(args.bucket)}
+                          's3_objects': 0 if args.analysis_only else 1, 'region': args.region, 'bucket_configured': bool(args.bucket)}
         if args.execute or args.preflight:
-            require(bool(args.bucket), 'S3_BUCKET_REQUIRED')
+            if args.analysis_only:
+                require(bool(args.expected_account), 'EXPECTED_ACCOUNT_REQUIRED')
+            else:
+                require(bool(args.bucket), 'S3_BUCKET_REQUIRED')
             execute(refs, photos, args.bucket, args.region, report, expected_role=args.expected_role,
-                    expected_account=args.expected_account, preflight=args.preflight)
+                    expected_account=args.expected_account, preflight=args.preflight, analysis_only=args.analysis_only)
         else:
             report['status'] = 'planned'
     except Exception as exc:

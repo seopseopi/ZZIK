@@ -157,6 +157,20 @@ jobs:
           assert {r['plan']['region'] for r in reports} == {'us-east-1', 'ap-northeast-2'}
           assert all(r['status'] == 'planned' and not r['aws_requested'] and r['rekognition_calls'] == 0 for r in reports)
           PY
+      - name: Verify analysis-only plan without network
+        run: |
+          docker run --rm --pull=never --network none --read-only --cap-drop ALL \
+            --env AWS_EC2_METADATA_DISABLED=true zzik-aws-validation:local \
+            --manifest backend/fixtures/aws-validation/manifest.json \
+            --analysis-only --region us-east-1 --max-calls 7 > data/aws-validation/analysis-plan.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path('data/aws-validation/analysis-plan.json').read_text())
+          assert result['scope'] == 'analysis_only' and result['status'] == 'planned'
+          assert result['plan']['s3_objects'] == 0
+          assert not result['aws_requested'] and result['rekognition_calls'] == 0
+          PY
       - name: Verify Nginx to API to PostgreSQL and seed
         run: |
           curl --fail --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 90 http://127.0.0.1:8080/api/health/ready

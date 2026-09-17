@@ -163,7 +163,7 @@
         ".venv/bin/python scripts/check_harness.py",
         ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
       ],
-      "current_status": "로컬·Docker Compose E2E/재시작 검증됨; 교육/별도 계정 설정과 읽기 전용 AWS 사전 점검 구현, 실제 역할·S3·분석·3-Tier 배포는 미검증",
+      "current_status": "로컬·Docker Compose E2E/재시작, 임시 AWS 인증·합성 사진 분석 함수 실검증됨; 교육/별도 계정 사전 점검 구현, EC2 역할·S3·3-Tier 배포는 미검증",
       "external_evidence": "계정·리전·예산·리소스 및 HTTPS 설정 필요. 실제 연결 기록과 배포 커밋을 남긴다."
     },
     {
@@ -246,7 +246,7 @@
         ".venv/bin/python -m pytest -q backend/tests/test_analysis_worker.py (TEST_DATABASE_URL 필수)",
         ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)"
       ],
-      "current_status": "fixture·모의 AWS 검증 및 콘솔 합성 사진 얼굴 검출 확인; 앱 역할 기반 실제 등록 경로 검증 필요",
+      "current_status": "앱 기준 얼굴 검증 함수의 실제 Rekognition 호출로 합성 기준 사진 얼굴 1개 확인; EC2 역할·API/DB 등록 경로 실검증 필요",
       "external_evidence": "허가된 기준 사진과 Rekognition 연결로 실패/성공 사례를 기록한다."
     },
     {
@@ -329,7 +329,7 @@
         ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
         ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
       ],
-      "current_status": "로컬·모의 AWS 검증 및 콘솔 합성 사진 비교 확인; 역할 기반 S3/분석 실행기 준비, 실제 앱 연동·정확도 미검증",
+      "current_status": "앱 분석 함수로 합성 평가 사진 2장 실검증: 등록 1명·미등록 1명/얼굴 없음 확인; S3·API/worker/DB 종단 연결·실사진 정확도 미검증",
       "external_evidence": "실제 사진별 정답/예측/누락/오매칭/처리시간/호출 수를 기록한다."
     },
     {
@@ -641,7 +641,7 @@
         ".venv/bin/python -m pytest -q backend/tests/test_image_rendering.py",
         ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)"
       ],
-      "current_status": "EXIF/태그 필터 구현됨; 실제 라벨·역지오코딩 미검증",
+      "current_status": "EXIF/태그 필터 구현됨; 실제 DetectLabels로 합성 풍경의 바다 태그 확인, 실사진 태그 품질·역지오코딩 미검증",
       "external_evidence": "Rekognition 라벨과 설정한 역지오코딩으로 실사진 결과 확인."
     },
     {
