@@ -41,4 +41,4 @@ python3 scripts/starter.py check --root ../zzik-starter-local-v1
 
 ## 팀 PR 운영
 
-[PR 운영 규칙](../docs/hackathon/PR_WORKFLOW.md)은 Kiro의 단위 선택·구현·검사·Draft/리뷰 준비 판단과 사람의 병합 책임을 정의한다. GitHub 보호 규칙을 자동 설정하는 기능은 아니다.
+[PR 운영 규칙](../docs/hackathon/PR_WORKFLOW.md)은 Kiro의 단위 구현·검사·실제 커밋·역할 PR·교차 검토·후보 통합·최종 병합을 정의한다. [자율 조립 시작](AUTONOMOUS_START.md)에서 공식 저장소와 팀 입력을 준비한다. GitHub 보호 규칙을 자동 설정하는 기능은 아니다.

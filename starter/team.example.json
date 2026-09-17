@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "mode": "rehearsal",
+  "repository": "",
+  "base_branch": "",
+  "run_id": "practice-01",
+  "starter_import_allowed": false,
+  "rules_reference": "",
+  "roles": {
+    "1": "",
+    "2": "",
+    "3": "",
+    "4": "",
+    "5": ""
+  }
+}

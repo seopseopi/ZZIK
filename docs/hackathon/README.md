@@ -59,4 +59,4 @@ python3 scripts/render_hackathon_prompts.py
 
 ## Kiro 작업·PR 운영
 
-[PR 운영 규칙](PR_WORKFLOW.md)에 복사할 시작 프롬프트와 상태별 행동, 검사 기준, 3번 통합 담당/1번 대체 병합 책임을 정했다. 사람 리뷰 없이 자동 병합하지 않는다.
+[PR 운영 규칙](PR_WORKFLOW.md)에 복사할 시작 프롬프트, 역할별 구현·AI 교차 검토, 3번 Kiro의 후보 통합·전체 검사·정책 충족 후 최종 병합을 정했다. [자율 조립 시작](../../starter/AUTONOMOUS_START.md)에서 공식 저장소/base/계정/반입 허용을 입력한다.

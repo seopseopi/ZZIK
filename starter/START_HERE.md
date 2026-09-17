@@ -7,7 +7,7 @@
 1. `AGENTS.md`, `starter/roles/01.md`~`05.md` 중 자신의 인계, 연결된 역할/M 프롬프트를 읽습니다.
 2. `python3 scripts/starter.py status`로 남은 작업을 확인합니다. `all`은 5명이 함께 조립하는 판입니다. 숫자 프로필은 그 역할만 비워 두며, **다른 역할의 구현은 제공된 참고 의존성**입니다.
 3. `docs/hackathon/ASSEMBLY.md` 순서대로 구현합니다. 공통 기반 → 1/3번 API·저장 → 4번 분석 → 5번 보정·승인 → 2번 화면 통합입니다. 공유 파일은 인계 문서에 적힌 자기 함수만 수정합니다.
-4. 역할별 브랜치와 실제 작업 커밋으로 PR을 만듭니다. `python3 scripts/starter.py check --role 3`처럼 자신의 미구현 경계를 확인하고, 역할 인계의 동작 검사를 실행합니다.
+4. `starter/AUTONOMOUS_START.md`에서 팀 설정을 준비하고, 역할별 브랜치·역할 PR을 생성/갱신합니다. `python3 scripts/starter.py check --role 3`처럼 자신의 미구현 경계를 확인하고, 역할 인계의 동작 검사를 실행합니다.
 5. 전원 통합 후 `python3 scripts/starter.py check`, 아래 전체 검사를 모두 실행합니다. PR의 Starter acceptance 4개 작업도 통과해야 합니다.
 
 ## 제공 기반과 과제
@@ -46,6 +46,6 @@ AWS S3/RDS/배포·실환경 재시작/복구·다중 사용자/실사진 정확
 
 코드 조립 완료 다음에는 `docs/THREE_TIER_REHEARSAL.md`를 따라 Web EC2/Nginx → App EC2/FastAPI·worker → RDS PostgreSQL과 비공개 S3를 연결하는 별도 배포 리허설을 준비한다. App 중단 중 화면·오류 안내·데이터 보존과 복구 후 기존/신규 기능을 확인하고 발표한다. 현재 AWS 자원 생성은 보류이며 실제 배포·중단 시연은 미검증이다. 교육 예시를 대회 규정으로 해석하지 않는다.
 
-## Kiro의 PR 판단 규칙
+## Kiro 자율 조립
 
-`docs/hackathon/PR_WORKFLOW.md`를 반드시 읽힌다. 첫 작업은 자기 구현 단위 하나이며 Kiro가 검사·Draft PR 생성/갱신·리뷰 준비 판정을 수행한다. 3번은 통합 담당, 3번 PR은 1번이 병합하며 작성자 외 사람 리뷰가 필요하다. 팀원용 시작 프롬프트와 종료 보고 양식도 해당 문서에 있다. 단위 하나 완료와 역할 전체 check 통과를 혼동하지 않는다.
+`starter/AUTONOMOUS_START.md`부터 팀 설정을 준비하고 `docs/hackathon/PR_WORKFLOW.md`를 읽힌다. 저장소/base는 `.zzik-assembly.json`으로 정하며 공식 대회 저장소를 준비용 저장소 주소로 대체하지 않는다. Kiro가 단위 구현·검사·실제 커밋·역할 PR·교차 검토를 수행하고 3번 Kiro가 후보 통합·전체 검사·최종 병합을 진행한다. 각 세션은 자기 계정으로 실행한다. 원격 필수 정책과 미확정 규정은 우회하지 않는다. 이전의 매 단계 사람 리뷰/병합 대기 방식은 이 자율 조립 규칙으로 대체한다.
