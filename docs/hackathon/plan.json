@@ -18,12 +18,14 @@
         "docs/AWS_VALIDATION_CONTAINER.md",
         "scripts/backup_local.py",
         "scripts/verify_backup_restore.py",
-        "docs/BACKUP_RESTORE.md"
+        "docs/BACKUP_RESTORE.md",
+        "docs/THREE_TIER_REHEARSAL.md"
       ],
       "instructions": [
         "Web→App→RDS 연결과 private S3·IAM 역할·HTTPS를 담당한다. API와 worker를 각각 실행하고 동일 배포 버전·환경을 적용한다.",
         "계정·리전·기존 리소스·예산이 확정되기 전에는 배포 파일과 검증 절차까지만 작성한다. 실제 AWS 호출·생성 결과를 로컬 실행으로 대체하지 않는다.",
-        "반영한 커밋, 마이그레이션 revision, 헬스 체크, 업로드·분석·다운로드 결과, 복구·정리 방법을 2/3번에게 전달한다."
+        "반영한 커밋, 마이그레이션 revision, 헬스 체크, 업로드·분석·다운로드 결과, 복구·정리 방법을 2/3번에게 전달한다.",
+        "3-Tier를 설계·검증·발표 핵심으로 준비한다. docs/THREE_TIER_REHEARSAL.md의 Web/App/RDS 분리 배치와 App 장애·복구 시연을 주관한다. 자원 생성 보류를 유지하고 실제 실행 증거 전에는 완료로 표시하지 않는다."
       ]
     },
     {
@@ -49,12 +51,14 @@
         "frontend/src/features/curation/Recommendations.tsx",
         "frontend/src/generated/api.d.ts",
         "contracts/codegen/generate.mjs",
-        "contracts/README.md"
+        "contracts/README.md",
+        "docs/THREE_TIER_REHEARSAL.md"
       ],
       "instructions": [
         "앨범·등록·업로드·갤러리·필터·상세·분석 상태를 실제 API와 연결하고 5번의 보정 화면을 통합한다.",
         "기존 PC 파란색·모바일 코랄색 디자인과 찍 이름을 유지한다. 큰 장식 문구를 추가하지 않는다. 오류·빈 결과·로딩과 모바일 조작을 유지한다.",
-        "API 변경은 3번과 맞추고, 5번은 Editor 내부를 담당한다. GitHub Pages 체험 API의 성공을 실제 서비스 연결로 보고하지 않는다."
+        "API 변경은 3번과 맞추고, 5번은 Editor 내부를 담당한다. GitHub Pages 체험 API의 성공을 실제 서비스 연결로 보고하지 않는다.",
+        "3-Tier 시연에서 App 중단 중 새로고침한 정적 화면과 API 오류·재시도 안내를 검증한다. 기존 재시작 테스트가 중단 중 화면 검증까지 했다고 해석하지 않는다."
       ]
     },
     {
@@ -84,12 +88,14 @@
         "backend/app/routers/collaboration.py",
         "backend/app/routers/groups.py",
         "backend/app/responses.py",
-        "contracts/README.md"
+        "contracts/README.md",
+        "docs/THREE_TIER_REHEARSAL.md"
       ],
       "instructions": [
         "인증·앨범 권한·DB·API·저장·작업 상태를 담당하며 4번 분석과 5번 버전/승인 코드를 통합한다.",
         "공유 모델·마이그레이션·OpenAPI의 통합 담당이다. 요청/응답 필드·에러·ID·상태를 임의 변경하지 않는다. 인물/계정 변경과 승인 무효화의 트랜잭션을 유지한다.",
-        "4번 결과를 저장하고 worker가 작업을 실행한다. 분석 모듈이 임의로 HTTP나 DB를 새로 소유하게 하지 않는다. 저장 및 외부 객체 정리 책임을 명확히 한다."
+        "4번 결과를 저장하고 worker가 작업을 실행한다. 분석 모듈이 임의로 HTTP나 DB를 새로 소유하게 하지 않는다. 저장 및 외부 객체 정리 책임을 명확히 한다.",
+        "3-Tier App 장애 전후 세션·DB 기록·원본/보정 파일·승인/최종본과 복구 후 신규 업로드를 확인한다. Web→App→RDS 및 private S3 연결 증거를 1번과 기록한다."
       ]
     },
     {
@@ -104,12 +110,14 @@
         "backend/tests/test_analysis_worker.py",
         "backend/app/routers/analysis.py",
         "backend/app/routers/groups.py",
-        "docs/AWS_EDU_VALIDATION.md"
+        "docs/AWS_EDU_VALIDATION.md",
+        "docs/THREE_TIER_REHEARSAL.md"
       ],
       "instructions": [
         "기준 얼굴 검사, 모든 얼굴의 매칭, 장면 태그, EXIF/GPS, 품질·유사 그룹·추천 결과를 구조화하여 3번에 전달한다.",
         "미확정·얼굴 없음·오류를 구분하고 실제 AWS 실패를 fixture 성공으로 대체하지 않는다. 그룹은 앨범 범위로 격리한다.",
-        "image_service.py의 메타데이터/품질 영역을 맡는다. 렌더링 영역을 변경할 때 5번과 계약을 먼저 맞춘다. 정확도·속도·비용은 실사진 측정 결과로만 기록한다."
+        "image_service.py의 메타데이터/품질 영역을 맡는다. 렌더링 영역을 변경할 때 5번과 계약을 먼저 맞춘다. 정확도·속도·비용은 실사진 측정 결과로만 기록한다.",
+        "3-Tier 리허설에서 분석 중 worker 중단·lease 만료·재시도 후 상태 복구를 검증한다. 무한 처리 중 상태와 중복 반영, 수동 수정 유실을 확인하고 실사진 정확도 검증과 구분한다."
       ]
     },
     {
@@ -124,12 +132,14 @@
         "backend/app/routers/versions.py",
         "backend/app/routers/collaboration.py",
         "backend/app/media.py",
-        "frontend/src/features/collaboration/Board.tsx"
+        "frontend/src/features/collaboration/Board.tsx",
+        "docs/THREE_TIER_REHEARSAL.md"
       ],
       "instructions": [
         "원본 기반 밝기·채도·비교·이력·다운로드와 버전별 승인·취소·최종본 흐름을 담당한다.",
         "서버/model 변경은 3번과, 공통 화면/API 타입은 2번과 통합한다. 화면에 Git 용어 대신 새 보정본·이전 버전·확인 요청을 쓴다.",
-        "확인된 등장 멤버 전원 승인 규칙과 승인 대상 스냅샷을 유지한다. contrast/crop/warm filter 예시는 현재 미구현이며 별도 범위 확정 없이 완료로 표시하지 않는다."
+        "확인된 등장 멤버 전원 승인 규칙과 승인 대상 스냅샷을 유지한다. contrast/crop/warm filter 예시는 현재 미구현이며 별도 범위 확정 없이 완료로 표시하지 않는다.",
+        "3-Tier App 장애·복구 전후 원본/보정본 해시·버전 설정·전원 승인·최종본 보존을 1/3번과 검증한다."
       ]
     }
   ],
@@ -141,7 +151,10 @@
       "priority": "P0",
       "owner": 1,
       "collaborators": [
-        3
+        2,
+        3,
+        4,
+        5
       ],
       "depends_on": [],
       "prompt": "docs/hackathon/tasks/M01.md",
@@ -158,18 +171,23 @@
         "docs/AWS_VALIDATION_CONTAINER.md",
         "scripts/backup_local.py",
         "scripts/verify_backup_restore.py",
-        "docs/BACKUP_RESTORE.md"
+        "docs/BACKUP_RESTORE.md",
+        "docs/THREE_TIER_REHEARSAL.md"
       ],
       "endpoints": [
         "GET /api/health/live",
         "GET /api/health/ready"
       ],
-      "goal": "Web→FastAPI→DB 및 별도 worker를 구성하고 각 실행 모드의 검증 상태를 구분한다.",
+      "goal": "Web EC2/Nginx → App EC2/FastAPI·별도 worker → RDS PostgreSQL을 분리 배치하고 비공개 S3 사진 저장을 연결한다. 코드 조립과 3-Tier 장애·복구 리허설을 각각 검증해 발표 증거로 남긴다.",
       "acceptance": [
         "새 checkout에서 마이그레이션 후 readiness 통과",
         "Web만 외부 진입점이며 App·DB 접근 범위를 문서화",
         "AWS 완료는 실제 Web/App/RDS 경유 요청으로 증명; 로컬/Docker 성공과 별도 표시",
-        "로컬 DB·사진 백업으로 별도 환경 복원 후 원본/보정본·세션·승인·최종본과 새 업로드 검증; AWS 복원과 구분"
+        "로컬 DB·사진 백업으로 별도 환경 복원 후 원본/보정본·세션·승인·최종본과 새 업로드 검증; AWS 복원과 구분",
+        "별도 Web/App/RDS 실배치 구조도와 배포 커밋·정상 두 계정 흐름 기록",
+        "시연 전용 App API/worker 중단 중 Web 정적 자산 응답·오류/재시도 표시와 별도 경로의 RDS/S3 보존 확인",
+        "동일 버전 복구 후 세션·파일 해시·설정·승인·최종본 유지 및 신규 업로드·분석 성공; 분석 중 worker 중단 복구도 별도 확인",
+        "실행 증거와 미검증 항목을 docs/THREE_TIER_REHEARSAL.md 기준으로 기록; 프로세스 중단과 저장소 손실·고가용성을 구분"
       ],
       "validation": [
         ".venv/bin/python scripts/check_harness.py",
@@ -177,7 +195,7 @@
         ".venv/bin/python scripts/verify_backup_restore.py (로컬 ZZIK_E2E_DATABASE_URL·DB 생성 권한·PostgreSQL 17 도구 필수)"
       ],
       "current_status": "로컬 DB·사진 백업 복원 및 Docker Compose E2E/재시작, 임시 AWS 인증·합성 사진 분석 함수 실검증됨; 교육/별도 계정 사전 점검 구현, EC2 역할·S3·3-Tier 배포는 미검증",
-      "external_evidence": "계정·리전·예산·리소스 및 HTTPS 설정 필요. 실제 연결 기록과 배포 커밋을 남긴다."
+      "external_evidence": "계정·리전·예산·리소스 및 HTTPS 설정 필요. 실제 연결 기록과 배포 커밋을 남긴다. 새 자원 생성 보류 유지. 3-Tier 실배치·중단 중 화면·데이터·복구 증거는 별도 확보하며 교육 자료를 대회 규정으로 간주하지 않는다."
     },
     {
       "id": "M02",

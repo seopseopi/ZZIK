@@ -11,6 +11,7 @@
 - Web→App→RDS 연결과 private S3·IAM 역할·HTTPS를 담당한다. API와 worker를 각각 실행하고 동일 배포 버전·환경을 적용한다.
 - 계정·리전·기존 리소스·예산이 확정되기 전에는 배포 파일과 검증 절차까지만 작성한다. 실제 AWS 호출·생성 결과를 로컬 실행으로 대체하지 않는다.
 - 반영한 커밋, 마이그레이션 revision, 헬스 체크, 업로드·분석·다운로드 결과, 복구·정리 방법을 2/3번에게 전달한다.
+- 3-Tier를 설계·검증·발표 핵심으로 준비한다. docs/THREE_TIER_REHEARSAL.md의 Web/App/RDS 분리 배치와 App 장애·복구 시연을 주관한다. 자원 생성 보류를 유지하고 실제 실행 증거 전에는 완료로 표시하지 않는다.
 
 ## 확인할 파일
 
@@ -25,6 +26,7 @@
 - `scripts/backup_local.py`
 - `scripts/verify_backup_restore.py`
 - `docs/BACKUP_RESTORE.md`
+- `docs/THREE_TIER_REHEARSAL.md`
 
 ## 주관 작업
 

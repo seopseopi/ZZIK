@@ -11,6 +11,7 @@
 - 인증·앨범 권한·DB·API·저장·작업 상태를 담당하며 4번 분석과 5번 버전/승인 코드를 통합한다.
 - 공유 모델·마이그레이션·OpenAPI의 통합 담당이다. 요청/응답 필드·에러·ID·상태를 임의 변경하지 않는다. 인물/계정 변경과 승인 무효화의 트랜잭션을 유지한다.
 - 4번 결과를 저장하고 worker가 작업을 실행한다. 분석 모듈이 임의로 HTTP나 DB를 새로 소유하게 하지 않는다. 저장 및 외부 객체 정리 책임을 명확히 한다.
+- 3-Tier App 장애 전후 세션·DB 기록·원본/보정 파일·승인/최종본과 복구 후 신규 업로드를 확인한다. Web→App→RDS 및 private S3 연결 증거를 1번과 기록한다.
 
 ## 확인할 파일
 
@@ -37,6 +38,7 @@
 - `backend/app/routers/groups.py`
 - `backend/app/responses.py`
 - `contracts/README.md`
+- `docs/THREE_TIER_REHEARSAL.md`
 
 ## 주관 작업
 

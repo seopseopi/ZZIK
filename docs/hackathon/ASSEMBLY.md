@@ -58,3 +58,7 @@ PR마다 M 번호, 의존 PR, 변경 동작, 계약/DB 변경, 검사 결과, �
 CI의 `compose` 작업은 새 Linux runner에서 Docker 이미지를 빌드하고 DB·마이그레이션·API·worker·Nginx를 실행한다. `/api/health/ready`를 Nginx 경유로 확인하고 seed 후 같은 브라우저 E2E 3개를 실행한다. 원본·보정·승인을 저장한 다음 DB/API/worker/web 컨테이너를 재시작하고 같은 세션과 데이터가 유지되는지 검사한다. 종료 시 해당 runner의 `zzik-ci` 테스트 스택과 볼륨을 제거한다. 이 정리 명령은 운영 환경에 사용하지 않는다.
 
 `integration`은 Python/Vite 직접 실행, `compose`는 Nginx와 실제 배포 이미지를 포함하는 검사다. 둘 다 fixture/local 스토리지이며 AWS·대량 처리 성능 검증을 대신하지 않는다. `integration`에는 별도 [DB·사진 백업 복원 리허설](../BACKUP_RESTORE.md)도 연결했다. 소스 테스트 DB/사진을 제거한 뒤 새 환경에서 세션·원본·보정본·승인·새 업로드를 검사하며, Compose 재시작 검사와 구분한다. 실행 결과는 PR의 Checks에 기록한다.
+
+## 두 번째 리허설: 3-Tier 배포·장애 복구
+
+코드 조립 검사 이후 [3-Tier 리허설](../THREE_TIER_REHEARSAL.md)을 별도로 진행한다. Web/App/RDS 분리 배치 → 두 계정 정상 사용 → 시연용 App API/worker 중단 → Web 정적 자산·오류 안내와 RDS/S3 보존 확인 → 동일 버전 복구 → 파일·승인·신규 분석 검증을 발표에 포함한다. 기존 CI 재시작 검사는 중단 중 화면과 AWS 장애 격리를 증명하지 않는다. 자원 생성 보류 상태에서는 준비까지만 수행한다.

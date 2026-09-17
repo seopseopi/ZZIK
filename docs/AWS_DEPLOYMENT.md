@@ -182,3 +182,7 @@ aws rekognition delete-collection --region us-east-1 --collection-id EXACT_COLLE
 ```
 
 `docker compose down`은 컨테이너와 네트워크를 정리하고 DB·사진 볼륨은 보존한다. 백업이 있고 로컬 데모 데이터를 완전히 폐기하려는 경우에만 `docker compose down --volumes`를 사용한다. AWS 리소스 종료와 버킷·RDS 삭제는 앱 삭제와 별개이며, 실행한 리소스 목록과 백업을 확인한 뒤 운영자가 수행해야 한다.
+
+## 3-Tier 장애·복구 발표
+
+배포 성공 후 [3-Tier 리허설](THREE_TIER_REHEARSAL.md)의 정상→App 중단→화면/데이터 확인→복구를 수행한다. 별도 시연 환경의 API/worker만 중단하며 실제 계정 조건과 기존 자원·비용 승인을 먼저 확인한다. 교육 실습의 포트 개방·S3 정적 웹 명령을 현재 구성에 그대로 적용하지 않는다. 이 절차는 아직 AWS에서 실행하지 않았다.
