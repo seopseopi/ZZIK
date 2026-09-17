@@ -12,7 +12,8 @@
         "infra/backend.Dockerfile",
         "infra/frontend.Dockerfile",
         "compose.yaml",
-        "docs/AWS_DEPLOYMENT.md"
+        "docs/AWS_DEPLOYMENT.md",
+        "docs/AWS_EDU_VALIDATION.md"
       ],
       "instructions": [
         "Web→App→RDS 연결과 private S3·IAM 역할·HTTPS를 담당한다. API와 worker를 각각 실행하고 동일 배포 버전·환경을 적용한다.",
@@ -92,7 +93,8 @@
         "backend/fixtures/manifest.json",
         "backend/tests/test_analysis_worker.py",
         "backend/app/routers/analysis.py",
-        "backend/app/routers/groups.py"
+        "backend/app/routers/groups.py",
+        "docs/AWS_EDU_VALIDATION.md"
       ],
       "instructions": [
         "기준 얼굴 검사, 모든 얼굴의 매칭, 장면 태그, EXIF/GPS, 품질·유사 그룹·추천 결과를 구조화하여 3번에 전달한다.",
@@ -139,7 +141,8 @@
         "backend/app/db.py",
         "backend/app/main.py",
         "docs/AWS_DEPLOYMENT.md",
-        "backend/app/routers/system.py"
+        "backend/app/routers/system.py",
+        "docs/AWS_EDU_VALIDATION.md"
       ],
       "endpoints": [
         "GET /api/health/live",
@@ -218,7 +221,11 @@
       "files": [
         "backend/app/analysis.py",
         "frontend/src/People.tsx",
-        "backend/app/routers/people.py"
+        "backend/app/routers/people.py",
+        "docs/AWS_EDU_VALIDATION.md",
+        "scripts/validate_aws.py",
+        "backend/fixtures/aws-validation/manifest.json",
+        "backend/tests/test_aws_validation.py"
       ],
       "endpoints": [
         "POST /api/albums/{album_id}/people",
@@ -234,7 +241,7 @@
         ".venv/bin/python -m pytest -q backend/tests/test_analysis_worker.py (TEST_DATABASE_URL 필수)",
         ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)"
       ],
-      "current_status": "fixture·모의 AWS 검증됨; 실제 얼굴 검사 미검증",
+      "current_status": "fixture·모의 AWS 검증 및 콘솔 합성 사진 얼굴 검출 확인; 앱 역할 기반 실제 등록 경로 검증 필요",
       "external_evidence": "허가된 기준 사진과 Rekognition 연결로 실패/성공 사례를 기록한다."
     },
     {
@@ -296,7 +303,11 @@
         "backend/app/worker.py",
         "backend/fixtures/manifest.json",
         "backend/app/routers/analysis.py",
-        "backend/app/photo_operations.py"
+        "backend/app/photo_operations.py",
+        "docs/AWS_EDU_VALIDATION.md",
+        "scripts/validate_aws.py",
+        "backend/fixtures/aws-validation/manifest.json",
+        "backend/tests/test_aws_validation.py"
       ],
       "endpoints": [
         "POST /api/photos/{photo_id}/reanalyze",
@@ -313,7 +324,7 @@
         ".venv/bin/python -m pytest -q backend/tests/test_api_integration.py backend/tests/test_album_management.py (TEST_DATABASE_URL 필수)",
         ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
       ],
-      "current_status": "fixture·모의 응답·worker 검증됨; 실제 인물 정확도 미검증",
+      "current_status": "로컬·모의 AWS 검증 및 콘솔 합성 사진 비교 확인; 역할 기반 S3/분석 실행기 준비, 실제 앱 연동·정확도 미검증",
       "external_evidence": "실제 사진별 정답/예측/누락/오매칭/처리시간/호출 수를 기록한다."
     },
     {

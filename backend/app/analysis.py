@@ -90,9 +90,9 @@ def validate_reference(data: bytes, original_hash: str | None = None) -> dict:
     else:
         raise AnalysisError('INVALID_PROVIDER', '분석 제공자 설정을 확인해 주세요.')
     if not faces:
-        raise AnalysisError('NO_FACE', '기준 사진에서 얼굴을 찾지 못했어요. 얼굴이 선명한 사진을 골라 주세요.')
+        raise AnalysisError('NO_FACE', '기준 사진에서 얼굴을 찾지 못했어요. 얼굴이 선명한 사진을 골라 주세요.', calls=result['calls'])
     if len(faces) > 1:
-        raise AnalysisError('MULTIPLE_FACES', '기준 사진에는 한 사람의 얼굴만 있어야 해요.')
+        raise AnalysisError('MULTIPLE_FACES', '기준 사진에는 한 사람의 얼굴만 있어야 해요.', calls=result['calls'])
     return dict(result, face_count=1)
 
 

@@ -52,7 +52,7 @@ class LocalStorage:
 
 
 class S3Storage:
-    def __init__(self, bucket: str | None = None, client=None):
+    def __init__(self, bucket: str | None = None, client=None, *, prefix: str | None = None):
         self.bucket = bucket or settings.s3_bucket
         if not self.bucket:
             raise ValueError("S3_BUCKET is required in S3 mode")
@@ -60,9 +60,11 @@ class S3Storage:
             import boto3
             from botocore.config import Config
             client = boto3.client("s3", region_name=settings.aws_region,
-                                  config=Config(connect_timeout=5, read_timeout=30, retries={"mode": "standard", "total_max_attempts": 3}))
+                                  config=Config(signature_version="s3v4", connect_timeout=5, read_timeout=30, retries={"mode": "standard", "total_max_attempts": 3}))
         self.client = client
-        self.prefix = settings.s3_prefix.strip("/")
+        self.prefix = (settings.s3_prefix if prefix is None else prefix).strip("/")
+        if self.prefix:
+            self.prefix = safe_key(self.prefix)
 
     def _key(self, key):
         key = safe_key(key)

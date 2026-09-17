@@ -1,6 +1,8 @@
 # 실행·배포·복구
 
-현재 확인된 실행 범위는 로컬 PostgreSQL·FastAPI·worker·프론트다. Docker 실행 파일이 없는 환경이므로 Docker 이미지 빌드와 Compose 기동은 이번 검증에서 실행하지 않았다. AWS 리소스 생성·배포·S3 실물 저장·Rekognition 실제 호출도 실행하지 않았다. 아래 명령은 배포 준비 및 운영 절차이며 이미 배포되었다는 뜻이 아니다.
+로컬 PostgreSQL·FastAPI·worker·프론트와 GitHub CI의 Docker 이미지 빌드·Compose 전체 E2E·컨테이너 재시작 보존 검사가 통과했다. 2026-09-17에는 AWS 콘솔에서 합성 사진의 얼굴 검출·비교도 확인했다. 앱 역할 기반 S3 저장·Rekognition 연동과 AWS 서버 배포는 아직 미검증이다.
+
+**교육 계정은 먼저 [AWS_EDU_VALIDATION.md](AWS_EDU_VALIDATION.md)를 따른다.** 지정 AMI·역할·리전과 금지 서비스가 있어 아래 일반 운영 구성을 그대로 만들면 안 된다.
 
 ## 로컬 Compose
 
@@ -94,7 +96,7 @@ DATABASE_URL=postgresql+psycopg://APP_USER:URL_ENCODED_PASSWORD@RDS_ENDPOINT:543
 STORAGE_BACKEND=s3
 S3_BUCKET=PRIVATE_BUCKET
 S3_PREFIX=moacut/
-AWS_REGION=ap-northeast-2
+AWS_REGION=us-east-1
 FACE_ANALYSIS_PROVIDER=rekognition
 REKOGNITION_COLLECTION_PREFIX=moacut-
 DEMO_ENABLED=false
@@ -172,9 +174,9 @@ docker compose logs --tail=200 worker
 Rekognition 인덱싱 직후 프로세스가 중단되면 DB에 연결되지 않은 얼굴 인덱스가 남을 수 있다. 재시도는 같은 이미지·외부 ID로 중복 인덱싱을 피하고, 앨범 삭제는 컬렉션 전체를 정리한다. 장기 운영에서는 원격 컬렉션과 DB를 대조해야 하며 현재 자동 대조 도구는 없다. 계정에서 컬렉션을 조회하거나 폐기할 때는 정확한 ID를 확인한다.
 
 ```sh
-aws rekognition list-collections --region ap-northeast-2
+aws rekognition list-collections --region us-east-1
 # 앱에서 삭제한 앨범의 잔여 컬렉션임을 확인한 뒤에만:
-aws rekognition delete-collection --region ap-northeast-2 --collection-id EXACT_COLLECTION_ID
+aws rekognition delete-collection --region us-east-1 --collection-id EXACT_COLLECTION_ID
 ```
 
 `docker compose down`은 컨테이너와 네트워크를 정리하고 DB·사진 볼륨은 보존한다. 백업이 있고 로컬 데모 데이터를 완전히 폐기하려는 경우에만 `docker compose down --volumes`를 사용한다. AWS 리소스 종료와 버킷·RDS 삭제는 앱 삭제와 별개이며, 실행한 리소스 목록과 백업을 확인한 뒤 운영자가 수행해야 한다.

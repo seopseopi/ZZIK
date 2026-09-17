@@ -19,6 +19,7 @@
 - `infra/frontend.Dockerfile`
 - `compose.yaml`
 - `docs/AWS_DEPLOYMENT.md`
+- `docs/AWS_EDU_VALIDATION.md`
 
 ## 주관 작업
 

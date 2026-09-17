@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "dataset_kind": "synthetic",
+  "references": [
+    {
+      "id": "person_a",
+      "file": "reference-a.png"
+    }
+  ],
+  "photos": [
+    {
+      "id": "travel_pair",
+      "file": "travel-pair.png",
+      "expected_people": [
+        "person_a"
+      ],
+      "expected_face_count": 2
+    },
+    {
+      "id": "no_faces",
+      "file": "no-faces.png",
+      "expected_people": [],
+      "expected_face_count": 0
+    }
+  ]
+}

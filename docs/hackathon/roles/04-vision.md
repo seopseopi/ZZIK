@@ -21,6 +21,7 @@
 - `backend/tests/test_analysis_worker.py`
 - `backend/app/routers/analysis.py`
 - `backend/app/routers/groups.py`
+- `docs/AWS_EDU_VALIDATION.md`
 
 ## 주관 작업
 
