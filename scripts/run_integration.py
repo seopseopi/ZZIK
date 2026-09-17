@@ -115,6 +115,12 @@ def main():
         handles.append(handle)
         process = subprocess.Popen(command, cwd=cwd, env=env, stdout=handle, stderr=subprocess.STDOUT, start_new_session=True)
         children.append(process)
+        return process
+
+    def launch_backend(suffix=''):
+        api = launch([sys.executable, '-m', 'uvicorn', 'backend.app.main:app', '--host', '127.0.0.1', '--port', str(api_port)], 'api' + suffix)
+        worker = launch([sys.executable, '-m', 'backend.app.worker'], 'worker' + suffix)
+        return api, worker
 
     try:
         with engine.begin() as connection:
@@ -126,13 +132,21 @@ def main():
                 checked([sys.executable, '-m', 'alembic', '-c', 'backend/alembic.ini', 'upgrade', 'head'])
                 checked([sys.executable, '-m', 'alembic', '-c', 'backend/alembic.ini', 'check'])
                 checked([sys.executable, '-m', 'backend.app.seed'])
-                launch([sys.executable, '-m', 'uvicorn', 'backend.app.main:app', '--host', '127.0.0.1', '--port', str(api_port)], 'api')
-                launch([sys.executable, '-m', 'backend.app.worker'], 'worker')
+                api, worker = launch_backend()
                 launch(['npm', 'run', 'dev', '--', '--host', '127.0.0.1', '--port', str(web_port), '--strictPort'], 'frontend', ROOT / 'frontend')
                 wait_ready(f'http://127.0.0.1:{api_port}/api/health/ready', children)
                 wait_ready(origin, children)
                 print('Isolated API + worker + web ready; running real-server E2E.', flush=True)
                 checked(['npm', '--prefix', 'frontend', 'run', 'test:e2e'])
+                restart = [sys.executable, 'scripts/verify_restart.py']
+                restart_options = ['--base-url', f'http://127.0.0.1:{api_port}', '--state-file', str(Path(storage) / 'restart-check.json')]
+                checked([*restart, 'setup', *restart_options])
+                stop([api, worker])
+                children.remove(api)
+                children.remove(worker)
+                launch_backend('-restarted')
+                wait_ready(f'http://127.0.0.1:{api_port}/api/health/ready', children)
+                checked([*restart, 'verify', *restart_options])
             finally:
                 stop(children)
                 for handle in handles:

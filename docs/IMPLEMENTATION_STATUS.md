@@ -27,7 +27,7 @@
 | 유사 사진·추천 | 구현/알고리즘 검증 완료 | 촬영 시각+시각적 해시, 보수적 그룹, 같은 전처리 내 흔들림/노출/눈 감음 신호 비교. 메타데이터 없으면 동일 원본만 그룹. 샘플 앨범은 후보 없음 상태가 정상 |
 | 등록 없는 인물 그룹 | 코드 구현/실연동 미검증 | 앨범별 Rekognition 컬렉션·각 FaceId 검색, 기존 그룹 유지, 연결·병합·분리 및 승인 재검토. fixture에서는 실제 연결 필요 표시 |
 | 저장·삭제 정리 | 구현·검증 완료 | 로컬 저장, 비공개 S3 어댑터, 파일 cleanup outbox. 앨범/사진/인물 삭제 화면·API, 삭제 후 선택 목록 정리, 멤버 변경·삭제와 업로드/worker 동시 실행 검증. S3 실연동은 미검증 |
-| 실행 구성 | 로컬 검증 완료 | Alembic 0001/0002, lockfile·env·dev.sh·PostgreSQL 스크립트. Docker Compose/Nginx/AWS 배포 예시는 작성·정적 점검, Docker/AWS 실행 미검증 |
+| 실행 구성 | 로컬 검증 완료 | Alembic 0001/0002, lockfile·env·dev.sh·PostgreSQL 스크립트. Docker Compose/Nginx 전체 실행·E2E·DB/API/worker/web 재시작 CI 통과. 실제 AWS 실행은 미검증 |
 
 ## 참고 이미지 기준 프론트 재정리
 
@@ -69,7 +69,7 @@ npm --prefix frontend run test:e2e
 ## 남은 조건과 명시적 한계
 
 - 실제 AWS 계정/권한, S3 버킷, Rekognition 리전·인증정보, 권한 있는 실제 사진 데이터가 없어 실제 얼굴 정확도·클라우드 저장·자동 그룹의 종단 검증은 미실시. 외부 연결 없이 로컬 파일/DB/보정/수동 인물/승인은 동작한다.
-- Docker CLI가 없어 Compose 컨테이너 실행 검증은 미실시. YAML·Dockerfile·Nginx 구성은 검토했다.
+- 로컬에 Docker CLI가 없어 이 기기에서 Compose 검증은 미실시. GitHub Linux runner에서는 Compose 빌드·실행·E2E·재시작 검사가 통과했다. [실행 기록](https://github.com/seopseopi/ZZIK/actions/runs/35166559076).
 - `GEOCODING_URL`이 없는 경우 장소명은 추가하지 않는다. 외부 장소 조회 실패는 사진 저장이나 얼굴 분석 결과를 없애지 않는다.
 - 한국어 자연어 검색은 제한된 이름/태그/날짜 조합이다. 한국어 이미지 임베딩 기반 의미 검색은 구현하지 않았다(선택 확장).
 - 사용자 요청 문서에서 후속 범위로 허용한 OS 푸시, 소셜 직접 게시, 피부/얼굴형 보정, 생성형 합성은 구현하지 않았다.
@@ -100,3 +100,15 @@ npm --prefix frontend run test:e2e
 이번 변경의 로컬 검증: **백엔드 46/46(11.79초)**, **실제 서버 E2E 3/3(41.0초)**, 프론트 빌드, 계약·의존성·프롬프트 검사 통과. 백엔드에는 통합 실행기의 잘못된 DB 대상 거부 검사 10개를 추가했다. 독립 E2E의 마이그레이션·스키마 검사·seed도 통과했다. GitHub CI 결과는 해당 PR의 Checks에 기록한다.
 
 이번 단계는 코드의 도메인 분리, AWS 실검증, 대회용 starter 제작을 완료한 단계가 아니다. 원문 예시인 대비·자르기·웜 필터도 현재 미구현이다. 다음 단계와 완료 기준은 [범위](hackathon/SCOPE.md)와 [서비스 완성 계획](COMPLETION_ROADMAP.md)을 따른다.
+
+
+## 기능별 구조 분리 2단계
+
+- `main.py`의 기능을 9개 라우터와 dependencies/photo_operations/media로 이동했다. 순환 참조 없이 라우터를 등록하고 공통 트랜잭션·권한 정책은 보존한다. seed도 HTTP 진입점 대신 photo_operations를 사용한다.
+- `App.tsx` 내부의 로그인·앨범·갤러리·상세·추천·그룹·보드 등 11개 함수를 9개 기능 컴포넌트 파일로 이동했다. 디자인·DOM·쿼리 키·UI 동작을 유지하고 읽기 쉽게 포맷했다.
+- M01~M17 프롬프트의 파일 경로를 갱신했다. 계약 검사에 실제 라우터 구현 파일과 작업 명세의 대응, API 중복 경로 검사를 추가했다. 기존 OpenAPI 스냅샷은 변경하지 않았다.
+- 로컬 백엔드 **46/46(8.13초)**, 실제 서버 E2E **3/3(39.5초)**, 체험 E2E **2/2(8.4초)**, 일반·체험 프론트 빌드 통과.
+- 독립 실행기에서 API/worker를 실제로 종료·재시작한 뒤 세션·앨범·원본 SHA-256·보정값·승인·최종본 유지와 검증 앨범 정리까지 통과.
+- CI에 깨끗한 Docker Compose 빌드, Nginx 경유 E2E, DB/API/worker/web 컨테이너 재시작 검사를 추가했다. backend/frontend/integration/compose **4개 CI 작업 모두 통과**했다. Compose 2분 17초, 직접 실행 integration 1분 51초. [실행 증거](https://github.com/seopseopi/ZZIK/actions/runs/35166559076).
+
+공유 models/services/image_service는 여전히 통합 영역이다. 명시적 응답 모델·프론트 타입 자동 생성, 실제 AWS 검증, starter 제작은 후속 범위다. 컨테이너 재시작 검증은 백업에서의 복원 검증과 구분한다.

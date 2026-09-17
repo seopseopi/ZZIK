@@ -19,6 +19,8 @@
 - `backend/app/image_service.py`
 - `backend/fixtures/manifest.json`
 - `backend/tests/test_analysis_worker.py`
+- `backend/app/routers/analysis.py`
+- `backend/app/routers/groups.py`
 
 ## 주관 작업
 

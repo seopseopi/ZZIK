@@ -8,7 +8,7 @@ from .db import SessionLocal
 from .models import Album, AlbumMember, ApprovalTarget, Person, Photo, User, Version, now
 from .services import hash_password, effective_people
 from .storage import get_storage
-from .main import upload_photo
+from .photo_operations import upload_photo
 from .worker import process_one
 
 

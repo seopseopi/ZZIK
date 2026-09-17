@@ -22,6 +22,14 @@
 - `frontend/src/AnalysisStatus.tsx`
 - `frontend/src/api.ts`
 - `frontend/src/types.ts`
+- `frontend/src/features/auth/Login.tsx`
+- `frontend/src/features/albums/AlbumHome.tsx`
+- `frontend/src/features/albums/AlbumForms.tsx`
+- `frontend/src/features/library/Library.tsx`
+- `frontend/src/features/library/PhotoInfo.tsx`
+- `frontend/src/features/library/SearchField.tsx`
+- `frontend/src/features/curation/Groups.tsx`
+- `frontend/src/features/curation/Recommendations.tsx`
 
 ## 주관 작업
 

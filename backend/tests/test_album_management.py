@@ -6,6 +6,7 @@ from threading import Event
 from sqlalchemy import event, func, select
 
 from backend.app import main, worker
+from backend.app.routers import albums, photos
 from backend.app.models import (
     Album, AlbumMember, AnalysisJob, AnalysisRun, Approval, FileCleanup,
     Notification, Person, Photo, Version, now,
@@ -175,8 +176,8 @@ def test_member_removal_waits_for_authorized_photo_mutation(api,monkeypatch):
     owner,member,_,album,samples,_,_=api
     photo=post_photo(owner,album,samples,'landscape')
     mutation_locked=Event(); release_mutation=Event(); removal_started=Event()
-    actual_photo=main.get_photo
-    actual_membership=main.membership
+    actual_photo=photos.get_photo
+    actual_membership=albums.membership
     def held_photo(db,photo_id,user,lock=False):
         result=actual_photo(db,photo_id,user,lock)
         if user.id==member.user['id'] and lock:
@@ -186,8 +187,8 @@ def test_member_removal_waits_for_authorized_photo_mutation(api,monkeypatch):
     def observed_membership(db,album_id,user,owner=False,exclusive=False):
         if exclusive: removal_started.set()
         return actual_membership(db,album_id,user,owner,exclusive)
-    monkeypatch.setattr(main,'get_photo',held_photo)
-    monkeypatch.setattr(main,'membership',observed_membership)
+    monkeypatch.setattr(photos,'get_photo',held_photo)
+    monkeypatch.setattr(albums,'membership',observed_membership)
     with ThreadPoolExecutor(max_workers=2) as pool:
         mutation=pool.submit(member.patch,'/api/photos/'+photo['id'],json={'note':'saved before leaving'})
         assert mutation_locked.wait(5)

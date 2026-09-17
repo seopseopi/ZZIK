@@ -5,7 +5,7 @@
 - [응답·상태·권한 규칙](../docs/API_CONTRACT.md): 실제 JSON 응답과 공유 정책.
 - [실행 가능한 실제 흐름](../frontend/e2e/desktop.spec.ts): 서로 다른 계정의 업로드→보정→승인→다운로드→승인 취소.
 
-검사: `.venv/bin/python scripts/check_harness.py`.
+검사: `.venv/bin/python scripts/check_harness.py`. 라우터 분리 후에도 기존 OpenAPI 스냅샷을 그대로 사용한다. 중복 API 경로를 거부하고 각 M 프롬프트의 파일 목록이 실제 endpoint 구현 파일을 포함하는지도 확인한다.
 
 API를 의도적으로 변경할 때는 소비하는 프론트 타입과 테스트를 먼저 검토하고 `.venv/bin/python scripts/check_harness.py --write-contract`로 갱신한다. 변경 PR에 호환 여부·영향받는 M 작업을 적는다.
 

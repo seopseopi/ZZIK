@@ -8,9 +8,13 @@ from pathlib import Path
 import httpx
 
 root=Path(__file__).resolve().parents[1]
-state_path=root/'data/restart-check.json'
-parser=argparse.ArgumentParser();parser.add_argument('phase',choices=['setup','verify']);args=parser.parse_args()
-client=httpx.Client(base_url='http://127.0.0.1:8000',timeout=30)
+parser=argparse.ArgumentParser()
+parser.add_argument('phase',choices=['setup','verify'])
+parser.add_argument('--base-url',default='http://127.0.0.1:8000')
+parser.add_argument('--state-file',type=Path,default=root/'data/restart-check.json')
+args=parser.parse_args()
+state_path=args.state_file
+client=httpx.Client(base_url=args.base_url,timeout=30)
 
 def call(method,path,**kwargs):
     response=client.request(method,'/api'+path,**kwargs)

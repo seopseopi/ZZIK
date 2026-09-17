@@ -32,7 +32,15 @@
         "frontend/src/AlbumSettings.tsx",
         "frontend/src/AnalysisStatus.tsx",
         "frontend/src/api.ts",
-        "frontend/src/types.ts"
+        "frontend/src/types.ts",
+        "frontend/src/features/auth/Login.tsx",
+        "frontend/src/features/albums/AlbumHome.tsx",
+        "frontend/src/features/albums/AlbumForms.tsx",
+        "frontend/src/features/library/Library.tsx",
+        "frontend/src/features/library/PhotoInfo.tsx",
+        "frontend/src/features/library/SearchField.tsx",
+        "frontend/src/features/curation/Groups.tsx",
+        "frontend/src/features/curation/Recommendations.tsx"
       ],
       "instructions": [
         "앨범·등록·업로드·갤러리·필터·상세·분석 상태를 실제 API와 연결하고 5번의 보정 화면을 통합한다.",
@@ -54,7 +62,18 @@
         "backend/app/storage.py",
         "backend/app/worker.py",
         "backend/alembic/env.py",
-        "docs/API_CONTRACT.md"
+        "docs/API_CONTRACT.md",
+        "backend/app/dependencies.py",
+        "backend/app/photo_operations.py",
+        "backend/app/routers/system.py",
+        "backend/app/routers/auth.py",
+        "backend/app/routers/albums.py",
+        "backend/app/routers/people.py",
+        "backend/app/routers/photos.py",
+        "backend/app/routers/analysis.py",
+        "backend/app/routers/versions.py",
+        "backend/app/routers/collaboration.py",
+        "backend/app/routers/groups.py"
       ],
       "instructions": [
         "인증·앨범 권한·DB·API·저장·작업 상태를 담당하며 4번 분석과 5번 버전/승인 코드를 통합한다.",
@@ -71,7 +90,9 @@
         "backend/app/grouping.py",
         "backend/app/image_service.py",
         "backend/fixtures/manifest.json",
-        "backend/tests/test_analysis_worker.py"
+        "backend/tests/test_analysis_worker.py",
+        "backend/app/routers/analysis.py",
+        "backend/app/routers/groups.py"
       ],
       "instructions": [
         "기준 얼굴 검사, 모든 얼굴의 매칭, 장면 태그, EXIF/GPS, 품질·유사 그룹·추천 결과를 구조화하여 3번에 전달한다.",
@@ -87,7 +108,11 @@
         "frontend/src/Editor.tsx",
         "frontend/src/Editor.css",
         "backend/app/image_service.py",
-        "backend/tests/test_image_rendering.py"
+        "backend/tests/test_image_rendering.py",
+        "backend/app/routers/versions.py",
+        "backend/app/routers/collaboration.py",
+        "backend/app/media.py",
+        "frontend/src/features/collaboration/Board.tsx"
       ],
       "instructions": [
         "원본 기반 밝기·채도·비교·이력·다운로드와 버전별 승인·취소·최종본 흐름을 담당한다.",
@@ -113,7 +138,8 @@
         "infra/nginx.conf",
         "backend/app/db.py",
         "backend/app/main.py",
-        "docs/AWS_DEPLOYMENT.md"
+        "docs/AWS_DEPLOYMENT.md",
+        "backend/app/routers/system.py"
       ],
       "endpoints": [
         "GET /api/health/live",
@@ -129,7 +155,7 @@
         ".venv/bin/python scripts/check_harness.py",
         ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
       ],
-      "current_status": "로컬 연결 검증됨; Docker·AWS 3-Tier 실배포 미검증",
+      "current_status": "로컬·Docker Compose 전체 실행/E2E/컨테이너 재시작 검증됨; AWS 3-Tier 실배포 미검증",
       "external_evidence": "계정·리전·예산·리소스 및 HTTPS 설정 필요. 실제 연결 기록과 배포 커밋을 남긴다."
     },
     {
@@ -146,10 +172,13 @@
       ],
       "prompt": "docs/hackathon/tasks/M02.md",
       "files": [
-        "backend/app/main.py",
         "backend/app/models.py",
         "backend/app/services.py",
-        "frontend/src/App.tsx"
+        "backend/app/routers/auth.py",
+        "backend/app/routers/albums.py",
+        "frontend/src/features/albums/AlbumHome.tsx",
+        "frontend/src/features/albums/AlbumForms.tsx",
+        "frontend/src/features/auth/Login.tsx"
       ],
       "endpoints": [
         "POST /api/auth/register",
@@ -188,8 +217,8 @@
       "prompt": "docs/hackathon/tasks/M03.md",
       "files": [
         "backend/app/analysis.py",
-        "backend/app/main.py",
-        "frontend/src/People.tsx"
+        "frontend/src/People.tsx",
+        "backend/app/routers/people.py"
       ],
       "endpoints": [
         "POST /api/albums/{album_id}/people",
@@ -224,10 +253,12 @@
       ],
       "prompt": "docs/hackathon/tasks/M04.md",
       "files": [
-        "backend/app/main.py",
         "backend/app/storage.py",
         "backend/app/worker.py",
-        "frontend/src/Upload.tsx"
+        "frontend/src/Upload.tsx",
+        "backend/app/routers/photos.py",
+        "backend/app/photo_operations.py",
+        "backend/app/routers/analysis.py"
       ],
       "endpoints": [
         "POST /api/albums/{album_id}/photos",
@@ -263,7 +294,9 @@
       "files": [
         "backend/app/analysis.py",
         "backend/app/worker.py",
-        "backend/fixtures/manifest.json"
+        "backend/fixtures/manifest.json",
+        "backend/app/routers/analysis.py",
+        "backend/app/photo_operations.py"
       ],
       "endpoints": [
         "POST /api/photos/{photo_id}/reanalyze",
@@ -298,9 +331,10 @@
       ],
       "prompt": "docs/hackathon/tasks/M06.md",
       "files": [
-        "frontend/src/App.tsx",
         "frontend/src/types.ts",
-        "backend/app/main.py"
+        "backend/app/routers/photos.py",
+        "frontend/src/features/library/Library.tsx",
+        "frontend/src/features/library/SearchField.tsx"
       ],
       "endpoints": [
         "GET /api/albums/{album_id}/photos"
@@ -334,9 +368,10 @@
       ],
       "prompt": "docs/hackathon/tasks/M07.md",
       "files": [
-        "frontend/src/App.tsx",
-        "backend/app/main.py",
-        "backend/app/storage.py"
+        "backend/app/storage.py",
+        "backend/app/routers/photos.py",
+        "backend/app/media.py",
+        "frontend/src/features/library/PhotoInfo.tsx"
       ],
       "endpoints": [
         "GET /api/photos/{photo_id}",
@@ -373,9 +408,9 @@
       ],
       "prompt": "docs/hackathon/tasks/M08.md",
       "files": [
-        "backend/app/main.py",
         "backend/app/services.py",
-        "frontend/src/Editor.tsx"
+        "frontend/src/Editor.tsx",
+        "backend/app/routers/photos.py"
       ],
       "endpoints": [
         "PUT /api/photos/{photo_id}/people"
@@ -413,7 +448,8 @@
         "frontend/src/Editor.tsx",
         "frontend/src/Editor.css",
         "backend/app/image_service.py",
-        "backend/app/main.py"
+        "backend/app/routers/versions.py",
+        "backend/app/media.py"
       ],
       "endpoints": [
         "POST /api/photos/{photo_id}/preview",
@@ -451,7 +487,7 @@
         "frontend/src/Editor.tsx",
         "frontend/src/Editor.css",
         "backend/app/models.py",
-        "backend/app/main.py"
+        "backend/app/routers/versions.py"
       ],
       "endpoints": [
         "GET /api/photos/{photo_id}/versions"
@@ -486,10 +522,10 @@
       ],
       "prompt": "docs/hackathon/tasks/M11.md",
       "files": [
-        "backend/app/main.py",
         "backend/app/services.py",
         "backend/app/models.py",
-        "frontend/src/Editor.tsx"
+        "frontend/src/Editor.tsx",
+        "backend/app/routers/versions.py"
       ],
       "endpoints": [
         "POST /api/versions/{version_id}/request-review",
@@ -527,8 +563,10 @@
       "files": [
         "backend/app/image_service.py",
         "backend/app/storage.py",
-        "backend/app/main.py",
-        "frontend/src/Editor.tsx"
+        "frontend/src/Editor.tsx",
+        "backend/app/routers/versions.py",
+        "backend/app/media.py",
+        "backend/app/routers/photos.py"
       ],
       "endpoints": [
         "GET /api/versions/{version_id}/file",
@@ -567,7 +605,10 @@
         "backend/app/analysis.py",
         "backend/app/image_service.py",
         "backend/app/worker.py",
-        "frontend/src/App.tsx"
+        "backend/app/routers/analysis.py",
+        "backend/app/routers/photos.py",
+        "frontend/src/features/library/Library.tsx",
+        "frontend/src/features/library/PhotoInfo.tsx"
       ],
       "endpoints": [
         "GET /api/albums/{album_id}/photos",
@@ -604,8 +645,8 @@
       "files": [
         "backend/app/image_service.py",
         "backend/app/analysis.py",
-        "backend/app/main.py",
-        "frontend/src/App.tsx"
+        "backend/app/routers/analysis.py",
+        "frontend/src/features/curation/Recommendations.tsx"
       ],
       "endpoints": [
         "GET /api/albums/{album_id}/recommendations"
@@ -642,9 +683,9 @@
       "files": [
         "backend/app/grouping.py",
         "backend/app/analysis.py",
-        "backend/app/main.py",
         "backend/app/models.py",
-        "frontend/src/App.tsx"
+        "backend/app/routers/groups.py",
+        "frontend/src/features/curation/Groups.tsx"
       ],
       "endpoints": [
         "POST /api/albums/{album_id}/face-groups/analyze",
@@ -680,9 +721,10 @@
       ],
       "prompt": "docs/hackathon/tasks/M16.md",
       "files": [
-        "backend/app/main.py",
-        "frontend/src/App.tsx",
-        "docs/API_CONTRACT.md"
+        "docs/API_CONTRACT.md",
+        "backend/app/routers/photos.py",
+        "frontend/src/features/library/Library.tsx",
+        "frontend/src/features/library/SearchField.tsx"
       ],
       "endpoints": [
         "GET /api/albums/{album_id}/photos"
@@ -716,11 +758,11 @@
       ],
       "prompt": "docs/hackathon/tasks/M17.md",
       "files": [
-        "backend/app/main.py",
         "backend/app/services.py",
         "backend/app/models.py",
-        "frontend/src/App.tsx",
-        "frontend/src/Editor.tsx"
+        "frontend/src/Editor.tsx",
+        "backend/app/routers/collaboration.py",
+        "frontend/src/features/collaboration/Board.tsx"
       ],
       "endpoints": [
         "POST /api/versions/{version_id}/comments",

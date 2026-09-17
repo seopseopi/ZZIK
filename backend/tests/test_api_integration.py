@@ -47,7 +47,6 @@ def api(tmp_path,monkeypatch):
                 raise
     main.app.dependency_overrides[get_db]=dependency
     storage=LocalStorage(tmp_path/'files')
-    monkeypatch.setattr(main,'get_storage',lambda:storage)
     monkeypatch.setattr(worker,'get_storage',lambda:storage)
     import backend.app.storage as storage_module
     monkeypatch.setattr(storage_module,'get_storage',lambda:storage)

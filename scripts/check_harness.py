@@ -60,6 +60,17 @@ def main():
     validate_plan(plan)
     subprocess.run([sys.executable, str(ROOT / 'scripts/render_hackathon_prompts.py'), '--check'], check=True)
     from backend.app.main import app
+    from fastapi.routing import APIRoute, iter_route_contexts
+    route_sources = {}
+    for route in iter_route_contexts(app.routes):
+        if not isinstance(route.original_route, APIRoute) or not route.path.startswith('/api/'):
+            continue
+        source = str(Path(inspect.getsourcefile(route.endpoint)).resolve().relative_to(ROOT))
+        for method in route.methods:
+            key = f'{method} {route.path}'
+            if key in route_sources:
+                raise ValueError(f'Duplicate API route: {key}')
+            route_sources[key] = source
     schema = app.openapi()
     schema = {**schema, 'paths': {path: operations for path, operations in schema['paths'].items() if path.startswith('/api/')}}
     rendered = json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
@@ -84,6 +95,8 @@ def main():
             method, path = endpoint.split(' ', 1)
             if method.lower() not in schema['paths'].get(path, {}):
                 raise ValueError(f'{task["id"]} references missing endpoint: {endpoint}')
+            if route_sources[endpoint] not in task['files']:
+                raise ValueError(f'{task["id"]} must reference its route implementation: {route_sources[endpoint]}')
     print(f'Harness passed: {len(plan["roles"])} roles, {len(plan["tasks"])} tasks, dependency graph, paths, API snapshot and Python signatures.')
     print('Scope: this checks declared interfaces; real response behavior requires the server integration tests.')
 

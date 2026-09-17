@@ -17,12 +17,15 @@ flowchart LR
 
 | 코드 | 역할 |
 |---|---|
-| `backend/app/main.py`, `services.py` | 인증·멤버십 검사, 사진·보정·승인 API, 알림, 정리 outbox |
+| `backend/app/main.py` | 9개 라우터 등록, 공통 HTTP 미들웨어·오류 처리 |
+| `backend/app/routers/` | 인증·앨범·인물·사진·분석·버전·협업·그룹·상태 API |
+| `dependencies.py`, `photo_operations.py`, `media.py`, `services.py` | 공통 인증, 업로드·재시도·파일 처리, 잠금·승인·직렬화 정책 |
 | `models.py`, `backend/alembic/` | 관계·제약·영속 상태, 스키마 마이그레이션 |
 | `analysis.py`, `worker.py` | 명시적인 분석 제공자, DB lease·재시도·실행 기록 |
 | `grouping.py` | 앨범별 Rekognition 컬렉션, 전체 얼굴 검색, 그룹 연결 동기화 |
 | `image_service.py`, `storage.py` | 검증·EXIF·렌더링·유사 사진 지표, 로컬/S3 어댑터 |
-| `frontend/src/` | 앨범·업로드·필터·보정 비교·확인 요청·최종본 화면 |
+| `frontend/src/App.tsx`, `features/` | 앱 통합, 로그인·앨범·갤러리·상세·추천·그룹·보드 화면 |
+| `frontend/src/Editor.tsx` | 보정 비교·확인 요청·최종본 화면 |
 
 API 형식은 [API_CONTRACT.md](API_CONTRACT.md)에 정리한다. 원본·계정·앨범·버전·승인·분석 작업은 새로고침 이후에도 DB와 저장소에 남는다.
 
@@ -69,3 +72,5 @@ API 형식은 [API_CONTRACT.md](API_CONTRACT.md)에 정리한다. 원본·계정
 파일·컬렉션 삭제는 DB outbox에 기록하며 API와 worker가 재시도한다. worker는 약 30초마다 정리를 시도한다. 분석 중 AWS 인덱싱 응답을 받기 전에 프로세스가 죽는 경우처럼 외부 서비스와 DB를 원자적으로 커밋할 수 없는 경계는 남는다. 앨범 삭제 시 컬렉션 전체 정리 경로가 있으며, 장기 운영 전 원격 컬렉션 잔여 항목 점검이 필요하다.
 
 알림은 저장 성공 후 별도 DB 트랜잭션으로 생성한다. 알림 실패가 저장을 취소하지 않으며, 현재 알림은 앱 내부 알림이다. 이메일·푸시 전송이나 외부 알림 스케줄러는 구현되어 있지 않다.
+
+담당별 실제 코드 경로와 의존 방향은 [모듈 지도](hackathon/MODULES.md)를 따른다.

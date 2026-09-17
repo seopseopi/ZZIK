@@ -24,6 +24,17 @@
 - `backend/app/worker.py`
 - `backend/alembic/env.py`
 - `docs/API_CONTRACT.md`
+- `backend/app/dependencies.py`
+- `backend/app/photo_operations.py`
+- `backend/app/routers/system.py`
+- `backend/app/routers/auth.py`
+- `backend/app/routers/albums.py`
+- `backend/app/routers/people.py`
+- `backend/app/routers/photos.py`
+- `backend/app/routers/analysis.py`
+- `backend/app/routers/versions.py`
+- `backend/app/routers/collaboration.py`
+- `backend/app/routers/groups.py`
 
 ## 주관 작업
 

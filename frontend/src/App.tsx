@@ -1,143 +1,575 @@
-import { useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownToLine, ArrowRight, Bell, Check, CheckCheck, ChevronLeft, ChevronRight, Clock3, Copy, FolderHeart, Grid2X2, Image, Images, LogOut, MapPin, Plus, Search, Settings2, SlidersHorizontal, Sparkles, Users, X } from 'lucide-react';
-import { api, ApiError, dateLabel, downloadPhoto, isBrowserDemo, patch, post } from './api';
-import type { Album, FaceGroup, List, Photo, PhotoList, User } from './types';
-import { Avatar, Empty, ErrorBox, Logo, Modal, Spinner } from './ui';
-import Upload from './Upload';
-import People from './People';
-import Editor from './Editor';
-import AlbumSettings from './AlbumSettings';
-import AnalysisStatus from './AnalysisStatus';
-import './styles.css';
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Bell,
+  Check,
+  ChevronLeft,
+  Clock3,
+  FolderHeart,
+  Image,
+  Images,
+  LogOut,
+  Plus,
+  Settings2,
+  Users,
+} from "lucide-react";
+import { api, ApiError, dateLabel, post } from "./api";
+import type { Album, List, User } from "./types";
+import { Avatar, Empty, ErrorBox, Logo, Modal, Spinner } from "./ui";
+import Upload from "./Upload";
+import People from "./People";
+import Editor from "./Editor";
+import AlbumSettings from "./AlbumSettings";
+import AnalysisStatus from "./AnalysisStatus";
+import { Login } from "./features/auth/Login";
+import { AlbumHome } from "./features/albums/AlbumHome";
+import { AlbumForm } from "./features/albums/AlbumForms";
+import { JoinForm } from "./features/albums/AlbumForms";
+import { Invite } from "./features/albums/AlbumForms";
+import { SearchField } from "./features/library/SearchField";
+import { Library } from "./features/library/Library";
+import { Board } from "./features/collaboration/Board";
+import { Recommendations } from "./features/curation/Recommendations";
+import { Groups } from "./features/curation/Groups";
+import type { View } from "./navigation";
 
-type View = 'albums'|'all'|'mine'|'board'|'recent'|'recommendations'|'groups';
-type Config = {face_provider:string;storage_backend:string;demo_enabled:boolean};
-type Notice = {id:string;message:string;read:boolean;photo_id?:string;album_id:string;created_at:string};
-const navItems: {id:View;label:string;icon:typeof Images}[] = [
- {id:'albums',label:'전체 앨범',icon:FolderHeart},{id:'all',label:'모든 사진',icon:Images},{id:'mine',label:'내 사진',icon:Image},{id:'board',label:'함께 고르기',icon:Users},{id:'recent',label:'최근 업로드',icon:Clock3},
+import "./styles.css";
+
+type Config = {
+  face_provider: string;
+  storage_backend: string;
+  demo_enabled: boolean;
+};
+type Notice = {
+  id: string;
+  message: string;
+  read: boolean;
+  photo_id?: string;
+  album_id: string;
+  created_at: string;
+};
+const navItems: { id: View; label: string; icon: typeof Images }[] = [
+  { id: "albums", label: "전체 앨범", icon: FolderHeart },
+  { id: "all", label: "모든 사진", icon: Images },
+  { id: "mine", label: "내 사진", icon: Image },
+  { id: "board", label: "함께 고르기", icon: Users },
+  { id: "recent", label: "최근 업로드", icon: Clock3 },
 ];
 export default function App() {
- const client=useQueryClient();
- const session=useQuery({queryKey:['session'],queryFn:()=>api<{user:User}>('/auth/me'),retry:false});
- const config=useQuery({queryKey:['config'],queryFn:()=>api<Config>('/config')});
- const [albumId,setAlbumId]=useState<string>(()=>localStorage.getItem('moacut-album')||'');
- const [view,setView]=useState<View>(()=>window.matchMedia('(max-width:700px)').matches?'albums':'all');const [photoQuery,setPhotoQuery]=useState('');const [modal,setModal]=useState<'create'|'join'|'upload'|'people'|'invite'|'notifications'|'settings'|'analysis'|null>(null);
- const [editor,setEditor]=useState<string|null>(null);const [lastDeletedPhotoId,setLastDeletedPhotoId]=useState<string|null>(null);const [toast,setToast]=useState('');
- const albums=useQuery({queryKey:['albums'],queryFn:()=>api<List<Album>>('/albums'),enabled:!!session.data});
- const album=useQuery({queryKey:['album',albumId],queryFn:()=>api<Album>(`/albums/${albumId}`),enabled:!!session.data&&!!albumId});
- const notices=useQuery({queryKey:['notifications'],queryFn:()=>api<{items:Notice[];total:number}>('/notifications'),enabled:!!session.data,refetchInterval:20000});
- useEffect(()=>{if(albums.data&&!albums.data.items.some(a=>a.id===albumId)){setAlbumId(albums.data.items[0]?.id||'');if(!albums.data.items.length)setView('albums');}},[albums.data,albumId]);
- useEffect(()=>{if(albumId)localStorage.setItem('moacut-album',albumId)},[albumId]);
- useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),4000);return()=>clearTimeout(timer)},[toast]);
- function openAlbum(id:string,next:View='all'){setPhotoQuery('');setAlbumId(id);setView(next)}
- function acceptAlbum(created:Album){client.setQueryData<List<Album>>(['albums'],old=>({items:[created,...(old?.items||[]).filter(a=>a.id!==created.id)],total:(old?.total||0)+(old?.items.some(a=>a.id===created.id)?0:1),page:1,page_size:100}));setModal(null);openAlbum(created.id);client.invalidateQueries({queryKey:['albums']})}
- function leaveAlbum(id:string){setModal(null);setEditor(null);setView('albums');setAlbumId('');localStorage.removeItem('moacut-album');client.setQueryData<List<Album>>(['albums'],old=>old?{...old,items:old.items.filter(a=>a.id!==id),total:Math.max(0,old.total-1)}:old);client.removeQueries({queryKey:['album',id]});client.removeQueries({queryKey:['photos',id]});client.removeQueries({queryKey:['board',id]});client.removeQueries({queryKey:['analysis-status',id]});client.invalidateQueries({queryKey:['albums']});client.invalidateQueries({queryKey:['notifications']});setToast('앨범 목록으로 돌아왔어요.')}
- async function logout(){try{await post('/auth/logout');client.clear();setAlbumId('');localStorage.removeItem('moacut-album');session.refetch()}catch(e){setToast((e as Error).message)}}
- if(session.isPending)return <div className="boot"><Logo/><Spinner/></div>;
- if(session.error&&(!(session.error instanceof ApiError)||session.error.status!==401))return <div className="boot"><Logo/><ErrorBox error={session.error} retry={()=>session.refetch()}/></div>;
- if(!session.data)return <Login demoEnabled={!!config.data?.demo_enabled} onLogin={()=>client.invalidateQueries({queryKey:['session']})}/>;
- const user=session.data.user;const current=album.data;
- return <div className={`app-shell view-${view}`}>
-  <aside className="sidebar"><a className="brand-link" href="#albums" onClick={e=>{e.preventDefault();setView('albums')}} aria-label="찍 전체 앨범"><Logo/></a>
-   <nav aria-label="주 메뉴">{navItems.map(n=><button key={n.id} className={`nav-item ${view===n.id?'active':''}`} onClick={()=>setView(n.id)}><n.icon size={19}/>{n.label}{n.id==='all'&&current&&<span className="nav-count">{current.photo_count}</span>}</button>)}</nav>
-   <div className="sidebar-section-title"><span>여행 앨범</span><button className="icon-button" onClick={()=>setModal('create')} aria-label="새 앨범 만들기"><Plus size={17}/></button></div>
-   <div className="album-nav">{albums.data?.items.map(a=><button key={a.id} className={albumId===a.id&&view!=='albums'?'active':''} onClick={()=>openAlbum(a.id)}>{a.cover_url?<img src={a.cover_url} alt=""/>:<span className="mini-cover"><Images size={18}/></span>}<span><strong>{a.name}</strong><small>사진 {a.photo_count}장</small></span></button>)}</div>
-   <button className="join-link" onClick={()=>setModal('join')}><Plus size={15}/> 초대코드로 참여하기</button>
-   <div className="sidebar-bottom"><div className="account"><Avatar name={user.name} url={current?.people.find(p=>p.user_id===user.id)?.reference_url} size={30}/><strong>{user.name}</strong><button className="icon-button notification-button" onClick={()=>setModal('notifications')} aria-label="알림"><Bell size={17}/>{notices.data?.items.some(n=>!n.read)&&<i/>}</button><button className="icon-button" aria-label="로그아웃" onClick={logout}><LogOut size={17}/></button></div></div>
-  </aside>
-  <main className="workspace">
-   {view==='albums'&&<header className="topbar"><div className="mobile-brand"><Logo/></div><span className="desktop-page-name">전체 앨범</span><div className="topbar-right"><button className="icon-button notification-button" onClick={()=>setModal('notifications')} aria-label="알림"><Bell size={20}/>{notices.data?.items.some(n=>!n.read)&&<i/>}</button><button className="icon-button" onClick={logout} aria-label="로그아웃"><LogOut size={19}/></button></div></header>}
-   {albums.error?<ErrorBox error={albums.error} retry={()=>albums.refetch()}/>:albums.isPending?<Spinner label="앨범 불러오는 중"/>:view==='albums'?<AlbumHome albums={albums.data?.items||[]} user={user} onOpen={openAlbum} onCreate={()=>setModal('create')} onJoin={()=>setModal('join')}/>:album.isPending?<Spinner/>:album.error?<ErrorBox error={album.error} retry={()=>album.refetch()}/>:current?<>
-    <header className="album-header">
-     <div className="album-identity"><button className="mobile-back icon-button" aria-label="앨범 목록으로" onClick={()=>setView('albums')}><ChevronLeft size={25}/></button><div><div className="breadcrumb"><button onClick={()=>setView('albums')}>내 앨범</button><span>/</span><span>{current.name}</span></div><div className="album-title-row"><h1>{current.name}</h1><span className="header-meta">사진 {current.photo_count}장 · 멤버 {current.member_count}명</span></div></div></div>
-     <div className="header-actions">{!['board','recommendations','groups'].includes(view)&&<SearchField value={photoQuery} onChange={setPhotoQuery} className="header-search"/>}<button className="button primary" onClick={()=>setModal('upload')} aria-label="사진 올리기"><Plus size={18}/><span>사진 올리기</span></button><button className="button secondary invite-trigger" onClick={()=>setModal('invite')} aria-label="초대하기"><Users size={17}/><span>초대하기</span></button><button className="icon-button album-settings-trigger" aria-label="앨범 설정" onClick={()=>setModal('settings')}><Settings2 size={19}/></button></div>
-     <div className="album-members"><button className="member-stack" aria-label="멤버와 인물 관리" onClick={()=>setModal('people')}>{current.members.slice(0,4).map(m=><Avatar key={m.id} name={m.name} url={current.people.find(p=>p.user_id===m.id)?.reference_url} size={34}/>)}</button><button className="icon-button add-member" aria-label="인물 관리 열기" onClick={()=>setModal('people')}><Plus size={18}/></button></div>
-    </header>
-    {view==='board'?<Board album={current} onOpen={setEditor}/>:view==='recommendations'?<Recommendations album={current} onOpen={setEditor}/>:view==='groups'?<Groups album={current}/>:<Library key={`${current.id}-${view}`} query={photoQuery} onQuery={setPhotoQuery} sample={config.data?.face_provider==='fixture'} album={current} user={user} view={view} onUpload={()=>setModal('upload')} onPeople={()=>setModal('people')} onEdit={setEditor} lastDeletedPhotoId={lastDeletedPhotoId} onAnalysis={()=>setModal('analysis')} onView={setView} notify={setToast}/>}
-   </>:<Empty title="앨범이 없습니다" description="새 앨범을 만들거나 초대코드로 참여하세요." action={<button className="button primary" onClick={()=>setModal('create')}>앨범 만들기</button>}/>}
-  </main>
-  <nav className="mobile-nav" aria-label="모바일 메뉴">{navItems.filter(n=>['albums','mine','board'].includes(n.id)).map(n=><button key={n.id} className={view===n.id?'active':''} onClick={()=>setView(n.id)}><n.icon size={22}/>{n.label}</button>)}</nav>
-  {modal==='create'&&<AlbumForm onClose={()=>setModal(null)} onCreated={acceptAlbum}/>}
-  {modal==='join'&&<JoinForm onClose={()=>setModal(null)} onJoined={acceptAlbum}/>}
-  {modal==='upload'&&current&&<Upload albumId={current.id} onClose={()=>setModal(null)}/>}
-  {modal==='people'&&current&&<People album={current} user={user} onClose={()=>setModal(null)}/>}
-  {modal==='invite'&&current&&<Invite album={current} onClose={()=>setModal(null)}/>}
-  {modal==='settings'&&current&&<AlbumSettings key={current.id} album={current} user={user} onClose={()=>setModal(null)} onExit={leaveAlbum}/>}
-  {modal==='analysis'&&current&&<AnalysisStatus album={current} onClose={()=>setModal(null)} onPhoto={id=>{setModal(null);setEditor(id)}}/>}
-  {modal==='notifications'&&<Modal title="알림" onClose={()=>setModal(null)}>{notices.error?<ErrorBox error={notices.error}/>:notices.data?.items.length?<div className="notice-list">{notices.data.items.map(n=><button key={n.id} className={n.read?'':'unread'} onClick={async()=>{try{await post(`/notifications/${n.id}/read`);client.invalidateQueries({queryKey:['notifications']});openAlbum(n.album_id);setModal(null);if(n.photo_id)setEditor(n.photo_id)}catch(e){setToast((e as Error).message)}}}><Bell size={18}/><span>{n.message}<small>{dateLabel(n.created_at)}</small></span>{!n.read&&<i/>}</button>)}</div>:<Empty title="아직 새로운 소식이 없어요" description="보정본과 확인 요청 소식을 여기에서 볼 수 있어요."/>}</Modal>}
-  {editor&&current&&<Editor key={editor} photoId={editor} album={current} user={user} onClose={()=>setEditor(null)} onDeleted={id=>{setLastDeletedPhotoId(id);setToast('사진과 관련 기록을 삭제했어요.')}} onChanged={()=>{client.invalidateQueries({queryKey:['photos']});client.invalidateQueries({queryKey:['board']});client.invalidateQueries({queryKey:['album']})}}/>}
-  {toast&&<div className="toast" role="status"><Check size={17}/>{toast}</div>}
- </div>
-}
-function Login({demoEnabled,onLogin}:{demoEnabled:boolean;onLogin:()=>void}) {
- const [register,setRegister]=useState(false);const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [name,setName]=useState('');
- const action=useMutation({mutationFn:(data:{email:string;password:string;name?:string})=>post(register?'/auth/register':'/auth/login',data),onSuccess:onLogin});
- return <main className="login-page"><section className="login-image"><img src={`${import.meta.env.BASE_URL}demo/photo-03.jpg`} alt="제주 여행 앨범 표지"/><Logo light/></section><section className="login-form-panel"><div className="login-form"><Logo/><h1>{register?'회원가입':'로그인'}</h1><form onSubmit={e=>{e.preventDefault();action.mutate({email,password,...(register?{name}:{})})}}>{register&&<label>이름<input autoComplete="name" required value={name} onChange={e=>setName(e.target.value)} placeholder="이름"/></label>}<label>이메일<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="hello@example.com"/></label><label>비밀번호<input type="password" autoComplete={register?'new-password':'current-password'} minLength={register?10:1} required value={password} onChange={e=>setPassword(e.target.value)} placeholder={register?'10자 이상':'비밀번호'}/></label>{action.error&&<ErrorBox error={action.error}/>}<button className="button primary full" disabled={action.isPending}>{action.isPending?'처리 중…':register?'계정 만들기':'로그인'}</button></form><p className="login-switch">{register?'이미 계정이 있나요?':'계정이 없나요?'} <button onClick={()=>{setRegister(!register);action.reset()}}>{register?'로그인':'회원가입'}</button></p>{demoEnabled&&!register&&<button className="button secondary full" disabled={action.isPending} onClick={()=>action.mutate({email:'jisu@moacut.local',password:'MoacutDemo123!'})}>샘플 앨범 둘러보기<ArrowRight size={16}/></button>}</div></section></main>;
-}
-function AlbumHome({albums,user,onOpen,onCreate,onJoin}:{albums:Album[];user:User;onOpen:(id:string)=>void;onCreate:()=>void;onJoin:()=>void}) {
- return <div className="album-home"><div className="home-heading"><h1>{user.name}님의 앨범 <span>{albums.length}</span></h1><div><button className="button secondary" onClick={onJoin}>초대코드로 참여하기</button><button className="button primary home-create" onClick={onCreate}><Plus size={18}/><span>새 앨범 만들기</span></button></div></div><div className="album-cards">{albums.map(a=><button className="album-card" key={a.id} onClick={()=>onOpen(a.id)}>{a.cover_url?<img src={a.cover_url} alt=""/>:<div className="album-placeholder"><Images size={48}/></div>}<div className="album-card-gradient"/><div className="album-card-info"><h2>{a.name}</h2><div className="album-card-bottom"><div className="member-stack">{(a.members||[]).slice(0,4).map(m=><Avatar key={m.id} name={m.name} url={a.people?.find(p=>p.user_id===m.id)?.reference_url} size={28}/>)}</div><span>{a.member_count}명 · {a.photo_count}장의 사진</span></div></div></button>)}</div>{!albums.length&&<Empty title="아직 앨범이 없습니다" description="새 앨범을 만들거나 초대코드로 참여하세요."/>}<button className="mobile-create-album" aria-label="새 앨범 만들기" onClick={onCreate}><Plus size={30}/></button></div>;
-}
-function SearchField({value,onChange,className=''}:{value:string;onChange:(value:string)=>void;className?:string}) {
- return <label className={`search-box ${className}`}><Search size={17}/><input aria-label="사진 검색" placeholder="사진과 사람 검색" value={value} onChange={e=>onChange(e.target.value)}/>{value&&<button className="icon-button" onClick={()=>onChange('')} aria-label="검색어 지우기"><X size={14}/></button>}</label>;
-
-}
-function Library({album,user,view,onUpload,onPeople,onEdit,onAnalysis,onView,notify,lastDeletedPhotoId,query,onQuery,sample}:{query:string;onQuery:(value:string)=>void;sample:boolean;album:Album;user:User;view:View;onUpload:()=>void;onPeople:()=>void;onEdit:(id:string)=>void;onAnalysis:()=>void;lastDeletedPhotoId:string|null;onView:(view:View)=>void;notify:(text:string)=>void}) {
- const client=useQueryClient();const [people,setPeople]=useState<string[]>([]);const [match,setMatch]=useState('all');const [filter,setFilter]=useState('all');const [tag,setTag]=useState('');const [search,setSearch]=useState('');const [sort,setSort]=useState(view==='recent'?'newest':'oldest');const [date,setDate]=useState('');const [page,setPage]=useState(1);const [compact,setCompact]=useState(false);const [advanced,setAdvanced]=useState(false);const [selected,setSelected]=useState<Set<string>>(new Set());const [focused,setFocused]=useState<string|null>(null);const [detailHidden,setDetailHidden]=useState(()=>window.matchMedia('(max-width: 960px)').matches);
- useEffect(()=>{if(!lastDeletedPhotoId)return;setSelected(old=>{const next=new Set(old);next.delete(lastDeletedPhotoId);return next});setFocused(old=>old===lastDeletedPhotoId?null:old)},[lastDeletedPhotoId]);
- useEffect(()=>{const timer=setTimeout(()=>setSearch(query),350);return()=>clearTimeout(timer)},[query]);
- useEffect(()=>{setPage(1)},[people,match,filter,tag,search,sort,date]);
- const params=new URLSearchParams({page:String(page),page_size:'24',filter,mine:String(view==='mine'),people:people.join(','),match,tag,q:search,sort,date});
- const photos=useQuery({queryKey:['photos',album.id,params.toString(),view],queryFn:()=>api<PhotoList>(`/albums/${album.id}/photos?${params}`),refetchInterval:4000});
- const items=photos.data?.items||[];const active=items.find(p=>p.id===focused)||items[0];
- const personTitle=people.length===1?`${album.people.find(p=>p.id===people[0])?.name}가 나온 사진`:people.length>1?'함께 담긴 사진':view==='mine'?`${user.name}님이 나온 사진`:view==='recent'?'최근 업로드':'모든 사진';
- function toggle(id:string){setSelected(old=>{const next=new Set(old);next.has(id)?next.delete(id):next.add(id);return next})}
- async function saveSelection(){try{await Promise.all([...selected].map(id=>patch(`/photos/${id}`,{selected:true})));client.invalidateQueries({queryKey:['photos']});client.invalidateQueries({queryKey:['board']});setSelected(new Set());onView('board');notify('함께 고를 사진을 모아두었어요.')}catch(e){notify((e as Error).message)}}
- const total=photos.data?.total||0;const stats=photos.data?.stats;
- return <div className={`library-layout ${detailHidden||!active?'without-detail':''}`}><section className="library-main">
-  <div className="people-strip"><button className={`person-filter all-people ${!people.length&&view!=='mine'?'active':''}`} onClick={()=>setPeople([])}><span className="all-avatar"><Users size={26}/></span><span>전체</span></button>{album.people.map(p=><button key={p.id} className={`person-filter ${people.includes(p.id)||(!people.length&&view==='mine'&&p.user_id===user.id)?'active':''}`} onClick={()=>setPeople(old=>old.includes(p.id)?old.filter(id=>id!==p.id):advanced?[...old,p.id]:[p.id])}><Avatar name={p.name} url={p.reference_url} size={58}/><span>{p.name}</span>{p.user_id===user.id&&<i>나</i>}</button>)}<button className="person-filter add-person" onClick={onPeople}><span className="all-avatar"><Plus size={22}/></span><span>인물 관리</span></button><button className="analysis-indicator as-button" aria-label="사진 정리 현황" onClick={onAnalysis}>{stats&&(stats.pending+stats.processing)>0?<><i className="working"/> {stats.pending+stats.processing}장 정리 중</>:stats?.failed?<><i className="failed"/> {stats.failed}장 확인 필요</>:<><i/> 사진 정리 완료</>}<small>{sample?'샘플 분석':'인물 분석'}</small></button></div>
-  <div className="library-heading"><div><h2>{personTitle}<span>{total}장</span></h2></div><div className="library-tools"><button className="icon-button" aria-label="추천 후보" onClick={()=>onView('recommendations')}><Sparkles size={17}/></button><button className="icon-button compact-analysis" aria-label="사진 정리 현황" onClick={onAnalysis}><Clock3 size={18}/>{sample&&<small>샘플</small>}</button><button className="icon-button" aria-label="상세 검색 조건" aria-expanded={advanced} onClick={()=>setAdvanced(!advanced)}><SlidersHorizontal size={19}/></button></div></div>
-  <div className="filters"><div className="filter-pills">{[['all','전체'],['solo','혼자'],['group','함께']].map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}</button>)}<span className="filter-divider"/>{['바다','카페','음식'].map(t=><button className={tag===t?'tag-filter tag-active':'tag-filter'} key={t} onClick={()=>setTag(tag===t?'':t)}>{t}</button>)}</div><div className="sort-controls"><select aria-label="사진 정렬" value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">최신순</option><option value="oldest">오래된순</option><option value="captured">촬영일순</option></select><button className={`icon-button grid-toggle ${compact?'active':''}`} aria-label="사진 격자 크기 변경" onClick={()=>setCompact(!compact)}><Grid2X2 size={18}/></button></div></div>
-
-  {advanced&&<div className="advanced-filters"><SearchField value={query} onChange={onQuery} className="mobile-search"/><label className="mobile-filter">정렬<select aria-label="사진 정렬" value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">최신순</option><option value="oldest">오래된순</option><option value="captured">촬영일순</option></select></label><label className="mobile-filter">태그<input aria-label="태그 필터" placeholder="바다, 카페 등" value={tag} onChange={e=>setTag(e.target.value)}/></label><label>분류<select aria-label="사진 분류" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">모든 사진</option><option value="solo">1인 사진</option><option value="group">2인 이상</option><option value="no_faces">얼굴 미검출</option><option value="review">확인 필요</option><option value="final">최종본</option></select></label><label>인물 조합<select value={match} onChange={e=>setMatch(e.target.value)}><option value="all">선택한 사람 모두 포함</option><option value="any">선택한 사람 중 누구든</option></select></label><label>촬영일<input aria-label="촬영일" type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><button className="text-button" onClick={()=>onView('groups')}>자동 인물 그룹<ArrowRight size={14}/></button><small>이름·태그·촬영일로 검색합니다.</small></div>}
-  {photos.isPending?<Spinner/>:photos.error?<ErrorBox error={photos.error} retry={()=>photos.refetch()}/>:items.length?<div className={`photo-grid ${compact?'compact':''}`}>{items.map((photo,index)=><article key={photo.id} className={`photo-card ${selected.has(photo.id)?'selected':''} ${focused===photo.id?'focused':''}`}><button className="photo-open" aria-label={`${photo.filename} 사진 정보`} onClick={()=>{if(window.matchMedia('(max-width:700px)').matches){onEdit(photo.id);return;}setFocused(photo.id);setDetailHidden(false)}} onDoubleClick={()=>onEdit(photo.id)}><img src={photo.thumbnail_url} alt={photo.people.length?`${photo.people.map(p=>p.name).join(', ')} · ${photo.tags.join(', ')}`:photo.filename} loading={index<8?'eager':'lazy'}/></button><label className="photo-select"><input type="checkbox" aria-label={`${photo.filename} 선택`} checked={selected.has(photo.id)} onChange={()=>toggle(photo.id)}/><span>{selected.has(photo.id)&&<Check size={13}/>}</span></label><span className="photo-person-count"><Users size={12}/>{photo.analysis_status==='completed'?`${photo.face_count}명`:photo.analysis_status==='failed'?'확인 필요':'분석 중'}</span>{photo.final_version_id&&<span className="photo-status"><CheckCheck size={12}/>최종본</span>}<button className="photo-edit-shortcut" aria-label={`${photo.filename} 보정하기`} onClick={()=>onEdit(photo.id)}><Settings2 size={14}/></button></article>)}</div>:<Empty title="조건에 맞는 사진이 없어요" description="필터를 바꾸거나 사진을 추가하세요." action={<button className="button secondary" onClick={onUpload}><Plus size={16}/>사진 올리기</button>}/>}
-  {total>24&&<div className="pagination"><button className="icon-button" aria-label="이전 페이지" disabled={page===1} onClick={()=>setPage(page-1)}><ChevronLeft size={18}/></button><span>{page} / {Math.ceil(total/24)}</span><button className="icon-button" aria-label="다음 페이지" disabled={page*24>=total} onClick={()=>setPage(page+1)}><ChevronRight size={18}/></button></div>}
-  {items.length>0&&<div className="grid-footnote"><span>{total}장</span><button className="text-button" onClick={()=>setSelected(selected.size?new Set():new Set(items.map(p=>p.id)))}>{selected.size?'선택 해제':'현재 페이지 모두 선택'}</button></div>}
- </section>
- {!detailHidden&&active&&<PhotoInfo key={active.id} photo={active} album={album} onClose={()=>setDetailHidden(true)} onEdit={()=>onEdit(active.id)} notify={notify}/>}
- {!!selected.size&&<div className="selection-bar"><strong>{selected.size}장 <span>선택</span></strong><button className="text-button" onClick={()=>setSelected(new Set())}>선택 해제</button><span className="selection-divider"/><button className="button secondary" onClick={saveSelection}><Users size={17}/>함께 고르기</button><a className="button primary" href={`/api/albums/${album.id}/download?photo_ids=${[...selected].join(',')}`} onClick={isBrowserDemo?e=>{e.preventDefault();void import('./demo/images').then(module=>module.downloadDemoZip([...selected])).catch(error=>notify((error as Error).message))}:undefined} download><ArrowDownToLine size={17}/><span>원본 다운로드</span></a></div>}
- </div>
-}
-function PhotoInfo({photo,album,onClose,onEdit,notify}:{photo:Photo;album:Album;onClose:()=>void;onEdit:()=>void;notify:(message:string)=>void}) {
- const client=useQueryClient();const [note,setNote]=useState(photo.note||'');const [saving,setSaving]=useState(false);
- async function update(data:unknown){setSaving(true);try{await patch(`/photos/${photo.id}`,data);client.invalidateQueries({queryKey:['photos']});notify('사진 정보를 저장했어요.')}catch(e){notify((e as Error).message)}finally{setSaving(false)}}
- return <aside className="photo-info"><header><h3>사진 정보</h3><button className="icon-button" onClick={onClose} aria-label="사진 정보 닫기"><X size={17}/></button></header><button className="info-image" onClick={onEdit} aria-label="사진 크게 보고 보정하기"><img src={photo.display_url} alt={photo.filename}/><span><Settings2 size={15}/> 크게 보고 보정하기</span></button><h4>{photo.filename}</h4><p className="info-date">{photo.captured_at?dateLabel(photo.captured_at):'촬영 시각 정보 없음'}</p><p className="info-location"><MapPin size={13}/>{photo.location_name||(photo.latitude!=null?`${photo.latitude.toFixed(4)}, ${photo.longitude?.toFixed(4)}`:'위치 정보 없음')}</p><div className="info-section"><h5>함께 나온 사람 <span>{photo.people.length}</span></h5><div className="info-people">{photo.people.map(p=><div key={p.id}><Avatar name={p.name} url={album.people.find(a=>a.id===p.id)?.reference_url} size={39}/><small>{p.name}</small></div>)}<button className="add-person-small" onClick={onEdit} aria-label="등장 인물 수정"><Plus size={16}/></button></div>{photo.unknown_faces>0&&<p className="small-text muted">이름을 확인할 얼굴 {photo.unknown_faces}명</p>}</div><div className="info-section"><h5>태그</h5><div className="tags">{photo.tags.length?photo.tags.map(t=><span key={t}>#{t}</span>):<small className="muted">태그 없음</small>}</div></div><div className="info-section"><h5>사진 용도</h5><select aria-label="사진 용도" value={photo.purpose||'undecided'} onChange={e=>update({purpose:e.target.value})}><option value="undecided">아직 정하지 않았어요</option><option value="share">함께 공유</option><option value="print">인화할 사진</option><option value="keep">추억으로 보관</option><option value="exclude">게시 제외</option></select>{photo.purpose==='exclude'&&<small className="muted">분류용 표시예요. 앨범 멤버에게는 계속 보여요.</small>}</div><label className="info-section note-label"><h5>메모</h5><textarea aria-label="사진 메모" placeholder="메모 입력" value={note} maxLength={4000} onChange={e=>setNote(e.target.value)}/></label>{note!==(photo.note||'')&&<button className="button secondary full small" disabled={saving} onClick={()=>update({note})}>메모 저장</button>}<div className="photo-analysis-note">{photo.analysis_mode==='fixture'||photo.analysis_provider==='fixture'?<><Sparkles size={13}/> 샘플 분석 결과</>:<><CheckCheck size={13}/> {photo.analysis_status==='completed'?'인물 분류 완료':'분석 상태 확인'}</>}</div>{photo.analysis_error&&<p className="small-text text-error">{photo.analysis_error.replace(/^[A-Z_]+:\s*/, '')}</p>}{photo.analysis_status==='failed'&&<button className="button secondary full small" onClick={async()=>{try{await post(`/photos/${photo.id}/reanalyze`);client.invalidateQueries({queryKey:['photos']});notify('다시 분석을 요청했어요.')}catch(e){notify((e as Error).message)}}}>분석 다시 시도</button>}<button className="button primary full" onClick={onEdit}><SlidersHorizontal size={16}/>보정하고 함께 고르기</button><button className="button subtle full small" onClick={()=>downloadPhoto(photo.id)}><ArrowDownToLine size={15}/>원본 다운로드</button></aside>
-}
-function AlbumForm({onClose,onCreated}:{onClose:()=>void;onCreated:(album:Album)=>void}) {
- const [name,setName]=useState('');const [description,setDescription]=useState('');const action=useMutation({mutationFn:()=>post<Album>('/albums',{name,description,timezone:'Asia/Seoul'}),onSuccess:onCreated});
- return <Modal title="새 앨범 만들기" onClose={onClose}><form onSubmit={e=>{e.preventDefault();action.mutate()}}><label>앨범 이름<input required maxLength={120} value={name} onChange={e=>setName(e.target.value)} placeholder="예: 우리들의 제주 여행"/></label><label>앨범 소개<textarea maxLength={2000} value={description} onChange={e=>setDescription(e.target.value)} placeholder="앨범 소개 (선택)"/></label>{action.error&&<ErrorBox error={action.error}/>}<button className="button primary full" disabled={action.isPending||!name.trim()}>앨범 만들기<ArrowRight size={16}/></button></form></Modal>
-}
-function JoinForm({onClose,onJoined}:{onClose:()=>void;onJoined:(album:Album)=>void}) {
- const [code,setCode]=useState('');const action=useMutation({mutationFn:()=>post<Album>('/albums/join',{code:code.trim()}),onSuccess:onJoined});
- return <Modal title="초대코드로 참여하기" onClose={onClose}><form onSubmit={e=>{e.preventDefault();action.mutate()}}><label>초대코드<input required value={code} onChange={e=>setCode(e.target.value)} placeholder="초대코드 붙여넣기"/></label>{action.error&&<ErrorBox error={action.error}/>}<button className="button primary full" disabled={action.isPending||!code.trim()}>앨범 참여하기</button></form></Modal>
-}
-function Invite({album,onClose}:{album:Album;onClose:()=>void}) {
- const [copied,setCopied]=useState(false);const [error,setError]=useState<Error|null>(null);
- return <Modal title="멤버 초대" onClose={onClose}><h3 className="center">{album.name}</h3><p className="center muted">{isBrowserDemo?'체험 코드는 같은 브라우저에서 인물을 바꿔 사용할 수 있어요.':'로그인 후 ‘초대코드로 참여하기’에서 입력하세요.'}</p><div className="invite-code"><code>{album.invite_code}</code><button className="icon-button" aria-label="초대코드 복사" onClick={async()=>{try{await navigator.clipboard.writeText(album.invite_code);setCopied(true)}catch{setError(new Error('복사하지 못했어요. 위 코드를 직접 선택해 복사해 주세요.'))}}}>{copied?<Check size={19}/>:<Copy size={19}/>}</button></div>{copied&&<p className="center text-green" role="status">초대코드를 복사했어요.</p>}{error&&<ErrorBox error={error}/>}</Modal>
-}
-function Board({album,onOpen}:{album:Album;onOpen:(id:string)=>void}) {
- const board=useQuery({queryKey:['board',album.id],queryFn:()=>api<Record<string,Photo[]>>(`/albums/${album.id}/board`),refetchInterval:5000});
- const columns=[['selection','사진 선택'],['editing','보정 중'],['review','확인 대기'],['final','최종본']];
- return <section className="extension-view"><div className="section-heading"><div><h2>함께 고르기</h2></div><span className="badge"><Users size={14}/>{album.member_count}명과 함께</span></div>{board.isPending?<Spinner/>:board.error?<ErrorBox error={board.error} retry={()=>board.refetch()}/>:<div className="board-columns">{columns.map(([key,title])=><section key={key} className={`board-column ${key}`}><h3><i/>{title}<span>{board.data?.[key]?.length||0}</span></h3>{board.data?.[key]?.map(p=><button key={p.id} className="board-card" onClick={()=>onOpen(p.id)}><img src={p.thumbnail_url} alt={p.filename}/><span><strong>{p.filename}</strong><small>{p.people.map(v=>v.name).join(' · ')||'인물 미지정'}</small><ArrowRight size={15}/></span></button>)}{!board.data?.[key]?.length&&<div className="board-empty"><Images size={24}/><span>아직 사진이 없어요</span></div>}</section>)}</div>}</section>
-}
-function Recommendations({album,onOpen}:{album:Album;onOpen:(id:string)=>void}) {
- const data=useQuery({queryKey:['recommendations',album.id],queryFn:()=>api<{groups:{id:string;photos:Photo[];recommended_ids:string[];reasons:Record<string,string[]>}[]}>(`/albums/${album.id}/recommendations`)});
- return <section className="extension-view"><h2><Sparkles size={23}/>추천 후보</h2><p className="muted">비슷한 사진의 선명도와 노출을 비교합니다.</p>{data.isPending?<Spinner/>:data.error?<ErrorBox error={data.error}/>:data.data?.groups.length?data.data.groups.map((group,i)=><div className="recommendation-group" key={group.id}><h3>함께 비교할 순간 {i+1}</h3><div className="recommendation-grid">{group.photos.map(p=><button key={p.id} onClick={()=>onOpen(p.id)}><img src={p.thumbnail_url} alt={p.filename}/><strong>{p.filename}</strong>{group.recommended_ids.includes(p.id)&&<span className="badge"><Sparkles size={13}/>{group.reasons[p.id]?.join(' · ')||'비교 추천'}</span>}</button>)}</div></div>):<Empty title="아직 함께 비교할 사진이 없어요" description="촬영 시각과 이미지가 충분히 비슷한 사진이 모이면 추천 후보를 보여드려요."/>}</section>
-}
-function Groups({album}:{album:Album}) {
- const client=useQueryClient();const [selected,setSelected]=useState<string[]>([]);
- const data=useQuery({queryKey:['groups',album.id],queryFn:()=>api<{items?:FaceGroup[];groups?:FaceGroup[];message?:string}>(`/albums/${album.id}/face-groups`)});
- const action=useMutation({mutationFn:(task:()=>Promise<unknown>)=>task(),onSuccess:()=>{client.invalidateQueries({queryKey:['groups',album.id]});client.invalidateQueries({queryKey:['photos']});setSelected([])}});
- const groups=data.data?.groups||data.data?.items||[];
- return <section className="extension-view"><div className="section-heading"><div><h2>인물 그룹</h2><p className="muted">같은 앨범 안의 얼굴을 묶고, 이름을 직접 확인해 주세요.</p></div><button className="button primary" disabled={action.isPending} onClick={()=>action.mutate(()=>post(`/albums/${album.id}/face-groups/analyze`))}><Sparkles size={16}/>인물 그룹 분석</button></div>{data.data?.message&&<div className="panel-note">{data.data.message}</div>}{action.error&&<ErrorBox error={action.error}/>} {data.isPending?<Spinner/>:data.error?<ErrorBox error={data.error}/>:groups.length?<><div className="group-grid">{groups.map(g=><div className="face-group" key={g.id}><label><input type="checkbox" checked={selected.includes(g.id)} onChange={e=>setSelected(e.target.checked?[...selected,g.id]:selected.filter(id=>id!==g.id))}/>{g.name||'이름 없는 인물'}</label><form className="group-name-form" onSubmit={e=>{e.preventDefault();const name=String(new FormData(e.currentTarget).get('name')||'').trim();if(name)action.mutate(()=>patch(`/face-groups/${g.id}`,{name}));}}><label>인물 이름<input name="name" aria-label={`${g.name||'그룹'} 인물 이름`} defaultValue={g.name||''} required maxLength={80}/></label><button className="button secondary small" disabled={action.isPending}>이름 저장</button></form><div className="group-faces">{g.faces?.map(f=><div key={f.id}>{f.thumbnail_url&&<img src={f.thumbnail_url} alt="그룹의 얼굴"/>}<button className="text-button" onClick={()=>action.mutate(()=>post(`/face-groups/${g.id}/split`,{face_ids:[f.id]}))}>분리</button></div>)}</div><label>등록 인물 연결<select value={g.person_id||''} onChange={e=>action.mutate(()=>patch(`/face-groups/${g.id}`,{person_id:e.target.value||null}))}><option value="">연결할 인물 선택</option>{album.people.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label></div>)}</div>{selected.length>=2&&<button className="button secondary" disabled={action.isPending} onClick={()=>action.mutate(()=>post('/face-groups/merge',{group_ids:selected}))}>선택한 그룹 합치기</button>}</>:<Empty title="아직 인물 그룹이 없어요" description="등록 없는 자동 그룹은 실제 얼굴 분석 연결이 필요해요. 기준 사진 등록과 샘플 인물 필터는 지금 사용할 수 있어요."/>}</section>
+  const client = useQueryClient();
+  const session = useQuery({
+    queryKey: ["session"],
+    queryFn: () => api<{ user: User }>("/auth/me"),
+    retry: false,
+  });
+  const config = useQuery({
+    queryKey: ["config"],
+    queryFn: () => api<Config>("/config"),
+  });
+  const [albumId, setAlbumId] = useState<string>(
+    () => localStorage.getItem("moacut-album") || "",
+  );
+  const [view, setView] = useState<View>(() =>
+    window.matchMedia("(max-width:700px)").matches ? "albums" : "all",
+  );
+  const [photoQuery, setPhotoQuery] = useState("");
+  const [modal, setModal] = useState<
+    | "create"
+    | "join"
+    | "upload"
+    | "people"
+    | "invite"
+    | "notifications"
+    | "settings"
+    | "analysis"
+    | null
+  >(null);
+  const [editor, setEditor] = useState<string | null>(null);
+  const [lastDeletedPhotoId, setLastDeletedPhotoId] = useState<string | null>(
+    null,
+  );
+  const [toast, setToast] = useState("");
+  const albums = useQuery({
+    queryKey: ["albums"],
+    queryFn: () => api<List<Album>>("/albums"),
+    enabled: !!session.data,
+  });
+  const album = useQuery({
+    queryKey: ["album", albumId],
+    queryFn: () => api<Album>(`/albums/${albumId}`),
+    enabled: !!session.data && !!albumId,
+  });
+  const notices = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => api<{ items: Notice[]; total: number }>("/notifications"),
+    enabled: !!session.data,
+    refetchInterval: 20000,
+  });
+  useEffect(() => {
+    if (albums.data && !albums.data.items.some((a) => a.id === albumId)) {
+      setAlbumId(albums.data.items[0]?.id || "");
+      if (!albums.data.items.length) setView("albums");
+    }
+  }, [albums.data, albumId]);
+  useEffect(() => {
+    if (albumId) localStorage.setItem("moacut-album", albumId);
+  }, [albumId]);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(""), 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  function openAlbum(id: string, next: View = "all") {
+    setPhotoQuery("");
+    setAlbumId(id);
+    setView(next);
+  }
+  function acceptAlbum(created: Album) {
+    client.setQueryData<List<Album>>(["albums"], (old) => ({
+      items: [
+        created,
+        ...(old?.items || []).filter((a) => a.id !== created.id),
+      ],
+      total:
+        (old?.total || 0) +
+        (old?.items.some((a) => a.id === created.id) ? 0 : 1),
+      page: 1,
+      page_size: 100,
+    }));
+    setModal(null);
+    openAlbum(created.id);
+    client.invalidateQueries({ queryKey: ["albums"] });
+  }
+  function leaveAlbum(id: string) {
+    setModal(null);
+    setEditor(null);
+    setView("albums");
+    setAlbumId("");
+    localStorage.removeItem("moacut-album");
+    client.setQueryData<List<Album>>(["albums"], (old) =>
+      old
+        ? {
+            ...old,
+            items: old.items.filter((a) => a.id !== id),
+            total: Math.max(0, old.total - 1),
+          }
+        : old,
+    );
+    client.removeQueries({ queryKey: ["album", id] });
+    client.removeQueries({ queryKey: ["photos", id] });
+    client.removeQueries({ queryKey: ["board", id] });
+    client.removeQueries({ queryKey: ["analysis-status", id] });
+    client.invalidateQueries({ queryKey: ["albums"] });
+    client.invalidateQueries({ queryKey: ["notifications"] });
+    setToast("앨범 목록으로 돌아왔어요.");
+  }
+  async function logout() {
+    try {
+      await post("/auth/logout");
+      client.clear();
+      setAlbumId("");
+      localStorage.removeItem("moacut-album");
+      session.refetch();
+    } catch (e) {
+      setToast((e as Error).message);
+    }
+  }
+  if (session.isPending)
+    return (
+      <div className="boot">
+        <Logo />
+        <Spinner />
+      </div>
+    );
+  if (
+    session.error &&
+    (!(session.error instanceof ApiError) || session.error.status !== 401)
+  )
+    return (
+      <div className="boot">
+        <Logo />
+        <ErrorBox error={session.error} retry={() => session.refetch()} />
+      </div>
+    );
+  if (!session.data)
+    return (
+      <Login
+        demoEnabled={!!config.data?.demo_enabled}
+        onLogin={() => client.invalidateQueries({ queryKey: ["session"] })}
+      />
+    );
+  const user = session.data.user;
+  const current = album.data;
+  return (
+    <div className={`app-shell view-${view}`}>
+      <aside className="sidebar">
+        <a
+          className="brand-link"
+          href="#albums"
+          onClick={(e) => {
+            e.preventDefault();
+            setView("albums");
+          }}
+          aria-label="찍 전체 앨범"
+        >
+          <Logo />
+        </a>
+        <nav aria-label="주 메뉴">
+          {navItems.map((n) => (
+            <button
+              key={n.id}
+              className={`nav-item ${view === n.id ? "active" : ""}`}
+              onClick={() => setView(n.id)}
+            >
+              <n.icon size={19} />
+              {n.label}
+              {n.id === "all" && current && (
+                <span className="nav-count">{current.photo_count}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-section-title">
+          <span>여행 앨범</span>
+          <button
+            className="icon-button"
+            onClick={() => setModal("create")}
+            aria-label="새 앨범 만들기"
+          >
+            <Plus size={17} />
+          </button>
+        </div>
+        <div className="album-nav">
+          {albums.data?.items.map((a) => (
+            <button
+              key={a.id}
+              className={albumId === a.id && view !== "albums" ? "active" : ""}
+              onClick={() => openAlbum(a.id)}
+            >
+              {a.cover_url ? (
+                <img src={a.cover_url} alt="" />
+              ) : (
+                <span className="mini-cover">
+                  <Images size={18} />
+                </span>
+              )}
+              <span>
+                <strong>{a.name}</strong>
+                <small>사진 {a.photo_count}장</small>
+              </span>
+            </button>
+          ))}
+        </div>
+        <button className="join-link" onClick={() => setModal("join")}>
+          <Plus size={15} /> 초대코드로 참여하기
+        </button>
+        <div className="sidebar-bottom">
+          <div className="account">
+            <Avatar
+              name={user.name}
+              url={
+                current?.people.find((p) => p.user_id === user.id)
+                  ?.reference_url
+              }
+              size={30}
+            />
+            <strong>{user.name}</strong>
+            <button
+              className="icon-button notification-button"
+              onClick={() => setModal("notifications")}
+              aria-label="알림"
+            >
+              <Bell size={17} />
+              {notices.data?.items.some((n) => !n.read) && <i />}
+            </button>
+            <button
+              className="icon-button"
+              aria-label="로그아웃"
+              onClick={logout}
+            >
+              <LogOut size={17} />
+            </button>
+          </div>
+        </div>
+      </aside>
+      <main className="workspace">
+        {view === "albums" && (
+          <header className="topbar">
+            <div className="mobile-brand">
+              <Logo />
+            </div>
+            <span className="desktop-page-name">전체 앨범</span>
+            <div className="topbar-right">
+              <button
+                className="icon-button notification-button"
+                onClick={() => setModal("notifications")}
+                aria-label="알림"
+              >
+                <Bell size={20} />
+                {notices.data?.items.some((n) => !n.read) && <i />}
+              </button>
+              <button
+                className="icon-button"
+                onClick={logout}
+                aria-label="로그아웃"
+              >
+                <LogOut size={19} />
+              </button>
+            </div>
+          </header>
+        )}
+        {albums.error ? (
+          <ErrorBox error={albums.error} retry={() => albums.refetch()} />
+        ) : albums.isPending ? (
+          <Spinner label="앨범 불러오는 중" />
+        ) : view === "albums" ? (
+          <AlbumHome
+            albums={albums.data?.items || []}
+            user={user}
+            onOpen={openAlbum}
+            onCreate={() => setModal("create")}
+            onJoin={() => setModal("join")}
+          />
+        ) : album.isPending ? (
+          <Spinner />
+        ) : album.error ? (
+          <ErrorBox error={album.error} retry={() => album.refetch()} />
+        ) : current ? (
+          <>
+            <header className="album-header">
+              <div className="album-identity">
+                <button
+                  className="mobile-back icon-button"
+                  aria-label="앨범 목록으로"
+                  onClick={() => setView("albums")}
+                >
+                  <ChevronLeft size={25} />
+                </button>
+                <div>
+                  <div className="breadcrumb">
+                    <button onClick={() => setView("albums")}>내 앨범</button>
+                    <span>/</span>
+                    <span>{current.name}</span>
+                  </div>
+                  <div className="album-title-row">
+                    <h1>{current.name}</h1>
+                    <span className="header-meta">
+                      사진 {current.photo_count}장 · 멤버 {current.member_count}
+                      명
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="header-actions">
+                {!["board", "recommendations", "groups"].includes(view) && (
+                  <SearchField
+                    value={photoQuery}
+                    onChange={setPhotoQuery}
+                    className="header-search"
+                  />
+                )}
+                <button
+                  className="button primary"
+                  onClick={() => setModal("upload")}
+                  aria-label="사진 올리기"
+                >
+                  <Plus size={18} />
+                  <span>사진 올리기</span>
+                </button>
+                <button
+                  className="button secondary invite-trigger"
+                  onClick={() => setModal("invite")}
+                  aria-label="초대하기"
+                >
+                  <Users size={17} />
+                  <span>초대하기</span>
+                </button>
+                <button
+                  className="icon-button album-settings-trigger"
+                  aria-label="앨범 설정"
+                  onClick={() => setModal("settings")}
+                >
+                  <Settings2 size={19} />
+                </button>
+              </div>
+              <div className="album-members">
+                <button
+                  className="member-stack"
+                  aria-label="멤버와 인물 관리"
+                  onClick={() => setModal("people")}
+                >
+                  {current.members.slice(0, 4).map((m) => (
+                    <Avatar
+                      key={m.id}
+                      name={m.name}
+                      url={
+                        current.people.find((p) => p.user_id === m.id)
+                          ?.reference_url
+                      }
+                      size={34}
+                    />
+                  ))}
+                </button>
+                <button
+                  className="icon-button add-member"
+                  aria-label="인물 관리 열기"
+                  onClick={() => setModal("people")}
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
+            </header>
+            {view === "board" ? (
+              <Board album={current} onOpen={setEditor} />
+            ) : view === "recommendations" ? (
+              <Recommendations album={current} onOpen={setEditor} />
+            ) : view === "groups" ? (
+              <Groups album={current} />
+            ) : (
+              <Library
+                key={`${current.id}-${view}`}
+                query={photoQuery}
+                onQuery={setPhotoQuery}
+                sample={config.data?.face_provider === "fixture"}
+                album={current}
+                user={user}
+                view={view}
+                onUpload={() => setModal("upload")}
+                onPeople={() => setModal("people")}
+                onEdit={setEditor}
+                lastDeletedPhotoId={lastDeletedPhotoId}
+                onAnalysis={() => setModal("analysis")}
+                onView={setView}
+                notify={setToast}
+              />
+            )}
+          </>
+        ) : (
+          <Empty
+            title="앨범이 없습니다"
+            description="새 앨범을 만들거나 초대코드로 참여하세요."
+            action={
+              <button
+                className="button primary"
+                onClick={() => setModal("create")}
+              >
+                앨범 만들기
+              </button>
+            }
+          />
+        )}
+      </main>
+      <nav className="mobile-nav" aria-label="모바일 메뉴">
+        {navItems
+          .filter((n) => ["albums", "mine", "board"].includes(n.id))
+          .map((n) => (
+            <button
+              key={n.id}
+              className={view === n.id ? "active" : ""}
+              onClick={() => setView(n.id)}
+            >
+              <n.icon size={22} />
+              {n.label}
+            </button>
+          ))}
+      </nav>
+      {modal === "create" && (
+        <AlbumForm onClose={() => setModal(null)} onCreated={acceptAlbum} />
+      )}
+      {modal === "join" && (
+        <JoinForm onClose={() => setModal(null)} onJoined={acceptAlbum} />
+      )}
+      {modal === "upload" && current && (
+        <Upload albumId={current.id} onClose={() => setModal(null)} />
+      )}
+      {modal === "people" && current && (
+        <People album={current} user={user} onClose={() => setModal(null)} />
+      )}
+      {modal === "invite" && current && (
+        <Invite album={current} onClose={() => setModal(null)} />
+      )}
+      {modal === "settings" && current && (
+        <AlbumSettings
+          key={current.id}
+          album={current}
+          user={user}
+          onClose={() => setModal(null)}
+          onExit={leaveAlbum}
+        />
+      )}
+      {modal === "analysis" && current && (
+        <AnalysisStatus
+          album={current}
+          onClose={() => setModal(null)}
+          onPhoto={(id) => {
+            setModal(null);
+            setEditor(id);
+          }}
+        />
+      )}
+      {modal === "notifications" && (
+        <Modal title="알림" onClose={() => setModal(null)}>
+          {notices.error ? (
+            <ErrorBox error={notices.error} />
+          ) : notices.data?.items.length ? (
+            <div className="notice-list">
+              {notices.data.items.map((n) => (
+                <button
+                  key={n.id}
+                  className={n.read ? "" : "unread"}
+                  onClick={async () => {
+                    try {
+                      await post(`/notifications/${n.id}/read`);
+                      client.invalidateQueries({ queryKey: ["notifications"] });
+                      openAlbum(n.album_id);
+                      setModal(null);
+                      if (n.photo_id) setEditor(n.photo_id);
+                    } catch (e) {
+                      setToast((e as Error).message);
+                    }
+                  }}
+                >
+                  <Bell size={18} />
+                  <span>
+                    {n.message}
+                    <small>{dateLabel(n.created_at)}</small>
+                  </span>
+                  {!n.read && <i />}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Empty
+              title="아직 새로운 소식이 없어요"
+              description="보정본과 확인 요청 소식을 여기에서 볼 수 있어요."
+            />
+          )}
+        </Modal>
+      )}
+      {editor && current && (
+        <Editor
+          key={editor}
+          photoId={editor}
+          album={current}
+          user={user}
+          onClose={() => setEditor(null)}
+          onDeleted={(id) => {
+            setLastDeletedPhotoId(id);
+            setToast("사진과 관련 기록을 삭제했어요.");
+          }}
+          onChanged={() => {
+            client.invalidateQueries({ queryKey: ["photos"] });
+            client.invalidateQueries({ queryKey: ["board"] });
+            client.invalidateQueries({ queryKey: ["album"] });
+          }}
+        />
+      )}
+      {toast && (
+        <div className="toast" role="status">
+          <Check size={17} />
+          {toast}
+        </div>
+      )}
+    </div>
+  );
 }

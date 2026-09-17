@@ -18,6 +18,10 @@
 - `frontend/src/Editor.css`
 - `backend/app/image_service.py`
 - `backend/tests/test_image_rendering.py`
+- `backend/app/routers/versions.py`
+- `backend/app/routers/collaboration.py`
+- `backend/app/media.py`
+- `frontend/src/features/collaboration/Board.tsx`
 
 ## 주관 작업
 

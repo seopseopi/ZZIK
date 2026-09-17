@@ -25,7 +25,7 @@
 4. AI 담당: 기준 얼굴·분석·인물 그룹·장면/품질·추천.
 5. 보정 담당: 원본 기반 렌더링·버전·비교·승인·협업.
 
-공유 파일 `backend/app/main.py`, `models.py`, `schemas.py`, `services.py`는 3번이 통합한다. `frontend/src/App.tsx`, `types.ts`, `api.ts`, 공통 CSS는 2번이 통합한다. 5번이 API/model을 제안할 수 있으나 다른 담당의 변경을 덮지 않는다. 마이그레이션 번호와 부모 revision은 3번이 조정한다. 구체적인 범위는 `docs/hackathon/OWNERSHIP.md`를 따른다.
+API는 `backend/app/routers/`의 9개 기능별 모듈에 둔다. `main.py`는 라우터 등록·미들웨어·오류 처리만 맡는다. 공통 `models.py`, `schemas.py`, `services.py`와 마이그레이션은 3번이 통합한다. 라우터끼리 직접 import하지 않고 공통 처리는 `dependencies.py`, `photo_operations.py`, `media.py`를 사용한다. `frontend/src/App.tsx`, `types.ts`, `api.ts`, 공통 CSS는 2번이 통합한다. `frontend/src/features/`에 로그인·앨범·갤러리·추천·그룹·보드를 분리했다. 5번은 versions/collaboration 라우터와 보정·보드 화면을 작업하고, 공유 API/model 변경은 3번과 맞춘다. 마이그레이션 번호와 부모 revision은 3번이 조정한다. 구체적인 범위는 `docs/hackathon/OWNERSHIP.md`를 따른다.
 
 ## 계약과 데이터
 
