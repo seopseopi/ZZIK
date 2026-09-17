@@ -8,6 +8,7 @@ node_modules/
 frontend/dist/
 data/
 logs/
+backups/
 playwright-report/
 test-results/
 

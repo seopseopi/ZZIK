@@ -22,6 +22,9 @@
 - `docs/AWS_EDU_VALIDATION.md`
 - `scripts/aws_validation_container.sh`
 - `docs/AWS_VALIDATION_CONTAINER.md`
+- `scripts/backup_local.py`
+- `scripts/verify_backup_restore.py`
+- `docs/BACKUP_RESTORE.md`
 
 ## 주관 작업
 

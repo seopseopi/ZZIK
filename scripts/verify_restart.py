@@ -41,6 +41,8 @@ if args.phase=='setup':
     call('POST',f"/versions/{version['id']}/request-review",json={'confirmed':True})
     call('POST',f"/versions/{version['id']}/approval")
     call('POST',f"/versions/{version['id']}/final")
+    rendered=call('GET',f"/versions/{version['id']}/file",params={'download':'true'}).content
+    state['rendered_hash']=hashlib.sha256(rendered).hexdigest()
     state['version_id']=version['id'];state_path.write_text(json.dumps(state))
     print('SETUP PASSED: album, original, edited version, approval, final and session saved. Restart API and worker, then run verify.')
 else:
@@ -55,7 +57,9 @@ else:
         assert version['brightness']==1.13 and version['saturation']==.82
         original=call('GET',f"/photos/{photo['id']}/download").content
         assert hashlib.sha256(original).hexdigest()==state['hash']
-        print('RESTART PASSED: session, album, original bytes, settings, approval and final remain intact across API/worker restart.')
+        rendered=call('GET',f"/versions/{version['id']}/file",params={'download':'true'}).content
+        assert hashlib.sha256(rendered).hexdigest()==state['rendered_hash']
+        print('PERSISTENCE PASSED: session, album, original/rendered bytes, settings, approval and final remain intact.')
     finally:
         call('DELETE',f"/albums/{state['album_id']}")
         state_path.unlink()

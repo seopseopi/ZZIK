@@ -91,10 +91,21 @@ jobs:
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
       - run: python scripts/run_integration.py
+      - name: Install matching PostgreSQL backup tools
+        run: |
+          # https://www.postgresql.org/download/linux/ubuntu/
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --retry 3 -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/zzik-pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Restore database and photos after losing disposable source data
+        run: python scripts/verify_backup_restore.py
       - name: Service logs on failure
         if: failure()
         run: |
-          for log in logs/integration/*/*.log; do
+          for log in logs/integration/*/*.log logs/recovery/*/*.log; do
             if [ -f "$log" ]; then
               tail -n 80 "$log"
             fi

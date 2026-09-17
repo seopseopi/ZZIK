@@ -131,6 +131,8 @@ curl --fail https://YOUR_DOMAIN/api/health/ready
 
 ## 백업과 롤백
 
+로컬 PostgreSQL·사진을 백업본만으로 복원하는 자동 리허설과 새 DB 복원 도구는 [백업·복원 가이드](BACKUP_RESTORE.md)를 따른다. 아래 Compose 수동 백업은 별도 형식이며 자동 리허설의 manifest 형식과 혼용하지 않는다. RDS·S3 복구는 아직 실검증하지 않았다.
+
 로컬 DB 백업은 비밀번호를 명령행에 노출하지 않고 컨테이너 내부 인증을 사용한다. 사진 볼륨과 DB는 같은 시점의 스냅샷으로 보관해야 참조가 일치한다. 일관된 수동 백업을 위해 쓰기와 worker를 잠시 멈춘다.
 
 ```sh
