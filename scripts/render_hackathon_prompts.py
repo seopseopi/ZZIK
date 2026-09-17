@@ -18,7 +18,7 @@ def render(plan):
         '`python scripts/render_hackathon_prompts.py`를 실행하세요.\n\n'
         '아래 지시를 작업 프롬프트로 사용한다. 먼저 저장소의 `AGENTS.md`, '
         '`docs/hackathon/COMMON.md`, `docs/hackathon/OWNERSHIP.md`, '
-        '`docs/API_CONTRACT.md`, `contracts/README.md`를 읽는다.\n'
+        '`docs/API_CONTRACT.md`, `contracts/README.md`, `docs/hackathon/PR_WORKFLOW.md`를 읽는다.\n'
     )
     output = {}
     for role in plan['roles']:

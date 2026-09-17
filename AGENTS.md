@@ -47,3 +47,7 @@ API는 `backend/app/routers/`의 9개 기능별 모듈에 둔다. `main.py`는 �
 ## 3-Tier 준비 기준
 
 코드 조립과 3-Tier 분리 배포·장애 복구를 서로 다른 완료 조건으로 관리한다. `docs/THREE_TIER_REHEARSAL.md`를 따른다. 목표는 Web EC2/Nginx → App EC2/FastAPI·worker → RDS PostgreSQL이며 사진은 비공개 S3에 둔다. App 중단 중 Web 응답·오류 안내·데이터 보존과 복구를 실검증한다. 현재는 계획이며 새 AWS 자원 생성 보류를 유지한다. 교육 내용은 대회 필수 규정으로 해석하지 않는다.
+
+## Kiro PR 운영
+
+조립 연습에서는 `docs/hackathon/PR_WORKFLOW.md`를 따른다. Kiro는 단위별 구현·검사·커밋·Draft PR과 리뷰 준비 판정을 수행한다. 통합 담당은 3번이며 3번 본인 PR은 1번이 병합한다. 사람 리뷰 없이 자동 승인/병합하지 않는다. 미구현으로 인한 전체 CI 실패와 자기 기능 회귀를 구분하고 원인 미상 실패는 Draft로 남긴다. 원본 누적 개발 PR은 기존 의존 브랜치를 유지한다.

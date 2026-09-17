@@ -56,3 +56,7 @@ python3 scripts/render_hackathon_prompts.py
 ## 3-Tier 설계·시연 준비
 
 [3-Tier 리허설](../THREE_TIER_REHEARSAL.md)에 구조도, 5개 역할의 책임, 정상→App 중단→데이터 보존→복구 순서와 증거 양식을 정리했다. 코드 조립과 별도 검증이며 AWS 실환경 실행은 아직이다.
+
+## Kiro 작업·PR 운영
+
+[PR 운영 규칙](PR_WORKFLOW.md)에 복사할 시작 프롬프트와 상태별 행동, 검사 기준, 3번 통합 담당/1번 대체 병합 책임을 정했다. 사람 리뷰 없이 자동 병합하지 않는다.

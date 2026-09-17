@@ -38,3 +38,7 @@ python3 scripts/starter.py check --root ../zzik-starter-local-v1
 ## 3-Tier 준비
 
 조립판은 코드 조립 리허설이며, 그 이후의 [3-Tier 분리 배포·장애 복구](../docs/THREE_TIER_REHEARSAL.md)는 별도 완료 조건이다. 역할별 프롬프트와 M01에 각 담당의 시연 책임을 명시했다. 현재 자원 생성·실배포는 수행하지 않는다.
+
+## 팀 PR 운영
+
+[PR 운영 규칙](../docs/hackathon/PR_WORKFLOW.md)은 Kiro의 단위 선택·구현·검사·Draft/리뷰 준비 판단과 사람의 병합 책임을 정의한다. GitHub 보호 규칙을 자동 설정하는 기능은 아니다.
