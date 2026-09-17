@@ -58,17 +58,40 @@ def test_dataset_rejects_leakage_escape_and_bad_labels(dataset, case, code):
     assert exc.value.code == code
 
 
-def test_report_never_overwrites_input_and_redacts_errors(dataset, monkeypatch, capsys):
+@pytest.mark.parametrize('destination', ['input', 'directory', 'broken_link', 'invalid_parent'])
+def test_unusable_report_stops_before_aws(dataset, monkeypatch, capsys, destination):
     path, _ = dataset
     original = path.read_bytes()
-    def fail(*args):
+    report = path
+    if destination == 'directory':
+        report = path.parent
+    elif destination == 'broken_link':
+        report = path.parent / 'report.json'
+        report.symlink_to(path.parent / 'absent.json')
+    elif destination == 'invalid_parent':
+        report = path / 'report.json'
+    monkeypatch.setattr(check, 'execute', lambda *a, **kw: pytest.fail('Unusable report reached AWS'))
+    assert check.main(['--manifest', str(path), '--execute', '--bucket', 'test-private', '--report', str(report)]) == 1
+    output = json.loads(capsys.readouterr().out)
+    assert output == {'status': 'failed', 'code': 'REPORT_WRITE_FAILED'}
+    assert path.read_bytes() == original
+    assert not (path.parent / 'absent.json').exists()
+
+
+def test_private_report_preserves_redacted_failure(dataset, monkeypatch, capsys):
+    path, _ = dataset
+    report = path.parent / 'reports' / 'failed.json'
+    attempted = []
+    def fail(*args, **kwargs):
+        attempted.append(True)
         raise RuntimeError('SECRET_PASSWORD https://signed.example/?SECRET_TOKEN')
     monkeypatch.setattr(check, 'execute', fail)
-    assert check.main(['--manifest', str(path), '--execute', '--bucket', 'test-private', '--report', str(path)]) == 1
+    assert check.main(['--manifest', str(path), '--execute', '--bucket', 'test-private', '--report', str(report)]) == 1
     output = capsys.readouterr().out
     assert 'SECRET_' not in output and 'signed.example' not in output
-    assert json.loads(output)['code'] == 'REPORT_WRITE_FAILED'
-    assert path.read_bytes() == original
+    assert json.loads(output)['code'] == 'AWS_OR_LOCAL_OPERATION_FAILED'
+    assert attempted == [True] and report.read_text() == output
+    assert report.stat().st_mode & 0o777 == 0o600
 
 
 def test_metrics_keep_failed_photos_in_denominator():
@@ -230,3 +253,47 @@ def test_live_runner_uses_real_adapter_contract_without_context_manager_clients(
     else:
         assert report['rekognition_calls'] == 4 and report['status'] == 'passed'
         assert report['photo_analysis_verified']
+
+
+@pytest.mark.parametrize('method,arn,code', [
+    ('env', 'arn:aws:sts::123456789012:assumed-role/ExpectedRole/session', 'EC2_INSTANCE_ROLE_REQUIRED'),
+    ('shared-credentials-file', '', 'EC2_INSTANCE_ROLE_REQUIRED'),
+    (None, '', 'EC2_INSTANCE_ROLE_REQUIRED'),
+    ('iam-role', 'arn:aws:sts::123456789012:assumed-role/OtherRole/session', 'EC2_ROLE_MISMATCH'),
+    ('iam-role', 'arn:aws:iam::123456789012:user/ExpectedRole', 'EC2_ROLE_MISMATCH'),
+])
+def test_role_gate_blocks_s3_before_wrong_credentials_or_identity(dataset, monkeypatch, capsys, method, arn, code):
+    services = []
+    class Identity:
+        def get_caller_identity(self): return {'Arn': arn}
+        def close(self): pass
+    def client(service, **kw):
+        services.append(service)
+        assert service == 'sts', 'Wrong role must never reach storage or analysis'
+        return Identity()
+    monkeypatch.setattr(boto3, 'Session', lambda **kw: SimpleNamespace(
+        get_credentials=lambda: SimpleNamespace(method=method) if method else None, client=client))
+    assert check.main(['--manifest', str(dataset[0]), '--execute', '--bucket', 'private',
+                       '--expected-role', 'ExpectedRole']) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report['code'] == code and not report['photo_analysis_verified']
+    assert services == (['sts'] if method == 'iam-role' else [])
+    assert '123456789012' not in json.dumps(report)
+
+
+def test_correct_instance_role_reaches_storage(dataset, monkeypatch, capsys):
+    class Client:
+        def get_caller_identity(self): return {'Arn': 'arn:aws:sts::123456789012:assumed-role/ExpectedRole/i-123'}
+        def close(self): pass
+    monkeypatch.setattr(boto3, 'Session', lambda **kw: SimpleNamespace(
+        get_credentials=lambda: SimpleNamespace(method='iam-role'), client=lambda *a, **kw: Client()))
+    calls = []
+    def storage_probe(*a):
+        calls.append(True)
+        return {'status': 'failed', 'code': 'TEST_STORAGE_STOP', 'cleanup': 'not_needed'}
+    monkeypatch.setattr(check, 'storage_probe', storage_probe)
+    assert check.main(['--manifest', str(dataset[0]), '--execute', '--bucket', 'private',
+                       '--expected-role', 'ExpectedRole']) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report['identity_verified'] and report['instance_role_verified'] and calls == [True]
+    assert '123456789012' not in json.dumps(report)

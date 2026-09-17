@@ -20,6 +20,8 @@
 - `compose.yaml`
 - `docs/AWS_DEPLOYMENT.md`
 - `docs/AWS_EDU_VALIDATION.md`
+- `scripts/aws_validation_container.sh`
+- `docs/AWS_VALIDATION_CONTAINER.md`
 
 ## 주관 작업
 

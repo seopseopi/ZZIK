@@ -1,6 +1,6 @@
 # 찍 · 구현 및 검증 상태
 
-최종 확인: 2026-09-17, macOS 로컬 PostgreSQL 17 + Python 3.13 + Node 26 + Chromium.
+최종 확인: 2026-09-17. 아래 단계별 기록은 당시 실행 결과다. 최신 진행 지점은 맨 아래 **AWS 연결 준비 3단계**이며, 이번 후속 작업은 로컬 Chrome을 사용하지 않는다.
 
 ## 이어받은 상태와 이번 구현
 
@@ -68,7 +68,7 @@ npm --prefix frontend run test:e2e
 
 ## 남은 조건과 명시적 한계
 
-- 실제 AWS 계정/권한, S3 버킷, Rekognition 리전·인증정보, 권한 있는 실제 사진 데이터가 없어 실제 얼굴 정확도·클라우드 저장·자동 그룹의 종단 검증은 미실시. 외부 연결 없이 로컬 파일/DB/보정/수동 인물/승인은 동작한다.
+- 교육용 AWS 콘솔에서 합성 사진의 얼굴 검출·비교는 확인했다. 앱에서 사용할 EC2·S3는 생성하지 않았고 역할 기반 저장·분석, 실제 얼굴 정확도·자동 그룹의 종단 검증은 미실시다. 외부 연결 없이 로컬 파일/DB/보정/수동 인물/승인은 동작한다.
 - 로컬에 Docker CLI가 없어 이 기기에서 Compose 검증은 미실시. GitHub Linux runner에서는 Compose 빌드·실행·E2E·재시작 검사가 통과했다. [실행 기록](https://github.com/seopseopi/ZZIK/actions/runs/35166559076).
 - `GEOCODING_URL`이 없는 경우 장소명은 추가하지 않는다. 외부 장소 조회 실패는 사진 저장이나 얼굴 분석 결과를 없애지 않는다.
 - 한국어 자연어 검색은 제한된 이름/태그/날짜 조합이다. 한국어 이미지 임베딩 기반 의미 검색은 구현하지 않았다(선택 확장).
@@ -112,3 +112,13 @@ npm --prefix frontend run test:e2e
 - CI에 깨끗한 Docker Compose 빌드, Nginx 경유 E2E, DB/API/worker/web 컨테이너 재시작 검사를 추가했다. backend/frontend/integration/compose **4개 CI 작업 모두 통과**했다. Compose 2분 17초, 직접 실행 integration 1분 51초. [실행 증거](https://github.com/seopseopi/ZZIK/actions/runs/35166559076).
 
 공유 models/services/image_service는 여전히 통합 영역이다. 명시적 응답 모델·프론트 타입 자동 생성, 실제 AWS 검증, starter 제작은 후속 범위다. 컨테이너 재시작 검증은 백업에서의 복원 검증과 구분한다.
+
+## AWS 연결 준비 3단계 — 현재 이어서 작업할 지점
+
+- M01·M03·M05: 합성 PNG 3장, 입력 검증·호출 상한·S3 원본/서명 다운로드·정확한 테스트 객체 정리 기능을 갖춘 `scripts/validate_aws.py`를 준비했다. 콘솔에서의 검출/비교와 앱 역할 기반 검증을 구분한다. [교육 계정 결과](AWS_EDU_VALIDATION.md).
+- M01: 앱과 같은 Python 의존성을 사용하는 별도 Docker target과 `build / plan / execute` 명령을 추가했다. `plan`은 네트워크 없이 실행한다. 향후 `execute`는 EC2 자격 증명 공급자와 지정 역할을 먼저 검사한다. [실행 키트](AWS_VALIDATION_CONTAINER.md).
+- `a615dcd`의 backend/frontend/integration/compose CI 4개가 통과했다. 백엔드 76개, 실제 컨테이너 빌드·오프라인 plan·기존 앱 E2E·재시작을 포함한다. [실행 기록](https://github.com/seopseopi/ZZIK/actions/runs/35169799177).
+- 후속 보완: 보고서 경로 오류를 AWS 호출 전에 거부하도록 수정했다. 관련 로컬 테스트 34개, 하네스·셸 구문 검사를 통과했다. 전체 후속 CI 결과는 [PR #4](https://github.com/seopseopi/ZZIK/pull/4)의 최신 Checks에서 확인한다.
+- 사용자 지정 범위는 **신규 AWS 자원 생성 없이 준비까지**다. 실제 EC2 역할·S3·Rekognition 연결, 전체 AWS 배포는 미완료이며 local/fixture 설정을 유지한다. 백업 복원·starter 제작은 이번 단계에서 시작하지 않았다.
+
+현재 개발 브랜치는 `feat/m01-aws-validation-kit`이다. 다음 실제 연결은 실행 환경·버킷·역할 및 비용/유지 시간이 확정된 뒤 진행한다. 이전 단계의 테스트 숫자는 당시 결과이므로 최신 전체 개수와 구분한다.

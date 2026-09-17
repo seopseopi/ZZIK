@@ -7,7 +7,7 @@ run uses an existing private unversioned test bucket and removes only its own ke
 from __future__ import annotations
 
 import argparse
-from contextlib import closing, contextmanager
+from contextlib import closing, contextmanager, ExitStack
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -188,16 +188,26 @@ def summarize(rows):
     }
 
 
-def execute(refs, photos, bucket, region, report):
+def execute(refs, photos, bucket, region, report, *, expected_role=None):
     import boto3
     from botocore.config import Config
 
     session = boto3.Session(region_name=region)
+    if expected_role:
+        credentials = session.get_credentials()
+        require(credentials is not None and credentials.method == 'iam-role', 'EC2_INSTANCE_ROLE_REQUIRED')
     config = Config(connect_timeout=5, read_timeout=30,
                     retries={'mode': 'standard', 'total_max_attempts': 1})
     # This does not require ListCollections, which is unrelated to reference matching.
     with closing(session.client('sts', config=config)) as identity:
-        identity.get_caller_identity()
+        caller = identity.get_caller_identity()
+    if expected_role:
+        arn = caller.get('Arn', '').split(':', 5)
+        resource = arn[5].split('/') if len(arn) == 6 else []
+        require(len(arn) == 6 and arn[:3] == ['arn', 'aws', 'sts']
+                and len(resource) == 3 and resource[0] == 'assumed-role'
+                and resource[1] == expected_role and bool(resource[2]), 'EC2_ROLE_MISMATCH')
+        report['instance_role_verified'] = True
     report['identity_verified'] = True
     with closing(session.client('s3', config=config.merge(Config(signature_version='s3v4')))) as client:
         report['storage'] = storage_probe(client, bucket, region, photos[0], report['run_id'])
@@ -241,11 +251,40 @@ def main(argv=None):
     parser.add_argument('--region', default=settings.aws_region)
     parser.add_argument('--max-calls', type=int, default=200, help='Maximum planned Rekognition calls, not a dollar budget.')
     parser.add_argument('--report', type=Path, help='Optional local report; never contains signed URLs or credential values.')
+    parser.add_argument('--expected-role', help='Require EC2 metadata credentials and this STS role name before any S3/analysis calls.')
     args = parser.parse_args(argv)
+    report = None
+    try:
+        with ExitStack() as outputs:
+            destination = None
+            if args.report:
+                args.report.parent.mkdir(parents=True, exist_ok=True)
+                # Reserve the destination before any paid calls or remote writes.
+                # O_EXCL also rejects existing files and dangling symlinks.
+                fd = os.open(args.report, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                destination = outputs.enter_context(os.fdopen(fd, 'w'))
+            report = run_validation(args)
+            rendered = json.dumps(report, ensure_ascii=False, indent=2) + '\n'
+            if destination:
+                destination.write(rendered)
+                destination.flush()
+    except OSError:
+        failure = {'status': 'failed', 'code': 'REPORT_WRITE_FAILED'}
+        if report is not None:
+            failure['result'] = report
+        print(json.dumps(failure, ensure_ascii=False))
+        return 1
+    print(rendered, end='')
+    return 0 if report['status'] in {'planned', 'passed'} else 1
+
+
+def run_validation(args):
     report = {'schema_version': 1, 'run_id': uuid.uuid4().hex, 'created_at': datetime.now(timezone.utc).isoformat(),
               'status': 'blocked', 'mode': 'live' if args.execute else 'plan', 'aws_requested': args.execute,
               'photo_analysis_verified': False, 'rekognition_calls': 0, 'photos': []}
     try:
+        if args.expected_role is not None:
+            require(bool(re.fullmatch(r'[A-Za-z0-9+=,.@_-]{1,64}', args.expected_role)), 'EXPECTED_ROLE_INVALID')
         refs, photos, kind = load_dataset(args.manifest)
         report['dataset_kind'] = kind
         planned_calls = len(refs) + len(photos) * (2 + len(refs))
@@ -255,24 +294,12 @@ def main(argv=None):
                           's3_objects': 1, 'region': args.region, 'bucket_configured': bool(args.bucket)}
         if args.execute:
             require(bool(args.bucket), 'S3_BUCKET_REQUIRED')
-            execute(refs, photos, args.bucket, args.region, report)
+            execute(refs, photos, args.bucket, args.region, report, expected_role=args.expected_role)
         else:
             report['status'] = 'planned'
     except Exception as exc:
         report['code'] = error_code(exc)
-    rendered = json.dumps(report, ensure_ascii=False, indent=2) + '\n'
-    if args.report:
-        try:
-            args.report.parent.mkdir(parents=True, exist_ok=True)
-            # Never overwrite an earlier run, a source image, or the input manifest.
-            fd = os.open(args.report, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(fd, 'w') as file:
-                file.write(rendered)
-        except OSError:
-            print(json.dumps({'status': 'failed', 'code': 'REPORT_WRITE_FAILED', 'result': report}, ensure_ascii=False))
-            return 1
-    print(rendered, end='')
-    return 0 if report['status'] in {'planned', 'passed'} else 1
+    return report
 
 
 if __name__ == '__main__':

@@ -130,6 +130,22 @@ jobs:
         working-directory: frontend
       - name: Build and start a clean full stack
         run: docker compose --env-file /dev/null up --build -d
+      - name: Build AWS validation image and check inputs without network
+        run: |
+          bash scripts/aws_validation_container.sh build
+          bash scripts/aws_validation_container.sh plan
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          reports = list(Path('data/aws-validation/reports').glob('*.json'))
+          assert len(reports) == 1
+          result = json.loads(reports[0].read_text())
+          assert result['status'] == 'planned'
+          assert result['dataset_kind'] == 'synthetic'
+          assert result['plan']['photos'] == 2
+          assert result['plan']['rekognition_calls_upper_bound'] == 7
+          assert result['aws_requested'] is False and result['rekognition_calls'] == 0
+          PY
       - name: Verify Nginx to API to PostgreSQL and seed
         run: |
           curl --fail --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 90 http://127.0.0.1:8080/api/health/ready

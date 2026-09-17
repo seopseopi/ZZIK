@@ -13,7 +13,9 @@
         "infra/frontend.Dockerfile",
         "compose.yaml",
         "docs/AWS_DEPLOYMENT.md",
-        "docs/AWS_EDU_VALIDATION.md"
+        "docs/AWS_EDU_VALIDATION.md",
+        "scripts/aws_validation_container.sh",
+        "docs/AWS_VALIDATION_CONTAINER.md"
       ],
       "instructions": [
         "Web→App→RDS 연결과 private S3·IAM 역할·HTTPS를 담당한다. API와 worker를 각각 실행하고 동일 배포 버전·환경을 적용한다.",
@@ -142,7 +144,10 @@
         "backend/app/main.py",
         "docs/AWS_DEPLOYMENT.md",
         "backend/app/routers/system.py",
-        "docs/AWS_EDU_VALIDATION.md"
+        "docs/AWS_EDU_VALIDATION.md",
+        "scripts/aws_validation_container.sh",
+        "infra/backend.Dockerfile",
+        "docs/AWS_VALIDATION_CONTAINER.md"
       ],
       "endpoints": [
         "GET /api/health/live",
@@ -158,7 +163,7 @@
         ".venv/bin/python scripts/check_harness.py",
         ".venv/bin/python scripts/run_integration.py (ZZIK_E2E_DATABASE_URL 필수)"
       ],
-      "current_status": "로컬·Docker Compose 전체 실행/E2E/컨테이너 재시작 검증됨; AWS 3-Tier 실배포 미검증",
+      "current_status": "로컬·Docker Compose E2E/재시작 검증됨; EC2 역할 검증용 컨테이너 키트 준비, AWS 3-Tier 실배포 미검증",
       "external_evidence": "계정·리전·예산·리소스 및 HTTPS 설정 필요. 실제 연결 기록과 배포 커밋을 남긴다."
     },
     {

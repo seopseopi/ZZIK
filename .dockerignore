@@ -5,6 +5,13 @@ frontend/dist
 data
 logs
 .env
+**/.env
+.env.*
+**/.env.*
+**/.aws
+**/*.pem
+**/*.key
 .DS_Store
 *.png
+!backend/fixtures/aws-validation/*.png
 test-results
