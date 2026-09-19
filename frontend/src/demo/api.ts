@@ -9,7 +9,7 @@ const requireValue = <T>(value: T | undefined, message: string): T => { if (!val
 const json = (value: unknown) => new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
 function stats(photos: Photo[]) { return { completed: photos.filter(p => p.analysis_status === 'completed').length, failed: photos.filter(p => p.analysis_status === 'failed').length, pending: 0, processing: 0 }; }
 function albumView(state: DemoState, album: Album): Album {
-  const photos = state.photos.filter(p => p.album_id === album.id);
+  const photos = state.photos.filter(p => p.album_id === album.id && !p.trashed_at);
   return { ...album, photo_count: photos.length, member_count: album.members.length, cover_url: photos.find(p => p.face_count > 2)?.thumbnail_url || photos[0]?.thumbnail_url };
 }
 function photoView(photo: Photo): Photo {
@@ -43,7 +43,8 @@ async function route(state: DemoState, path: string, method: string, body: Body,
   if (path === '/auth/me') return {user, csrf_token: 'browser-demo'};
   if (resource === 'notifications') {
     if (method === 'POST') { const notice = state.notices.find(n => n.id === id); if (notice) notice.read = true; }
-    return {items: state.notices, total: state.notices.length};
+    const items = state.notices.filter(n => !state.photos.find(p => p.id === n.photo_id)?.trashed_at);
+    return {items, total: items.length};
   }
   if (resource === 'albums') {
     if (id === 'join') {
@@ -61,7 +62,8 @@ async function route(state: DemoState, path: string, method: string, body: Body,
       return {items, total: items.length, page: 1, page_size: 100};
     }
     const album = requireValue(state.albums.find(a => a.id === id && a.members.some(m => m.id === user.id)), '앨범에 참여한 체험 인물을 선택해 주세요.');
-    const photos = state.photos.filter(p => p.album_id === id);
+    const allPhotos = state.photos.filter(p => p.album_id === id);
+    const photos = allPhotos.filter(p => !p.trashed_at);
     if (!action) {
       if (method === 'DELETE') { owner(album, user.id); state.albums = state.albums.filter(a => a.id !== id); state.photos = state.photos.filter(p => p.album_id !== id); state.notices = state.notices.filter(n => n.album_id !== id); return {ok: true}; }
       if (method === 'PATCH') { owner(album, user.id); if (!body.name?.trim()) throw new DemoError('앨범 이름을 입력해 주세요.'); Object.assign(album, {name: body.name.trim(), description: body.description, timezone: body.timezone}); }
@@ -73,7 +75,7 @@ async function route(state: DemoState, path: string, method: string, body: Body,
       if (album.members.some(m => m.id === child && m.role === 'owner')) throw new DemoError('소유자는 앨범에서 나갈 수 없어요.');
       album.members = album.members.filter(m => m.id !== child);
       album.people.forEach(p => { if (p.user_id === child) p.user_id = undefined; });
-      photos.forEach(p => { p.people.forEach(person => { if (person.user_id === child) person.user_id = undefined; }); invalidateReview(p); });
+      allPhotos.forEach(p => { p.people.forEach(person => { if (person.user_id === child) person.user_id = undefined; }); invalidateReview(p); });
       return {ok: true};
     }
     if (action === 'people' && form) {
@@ -93,7 +95,9 @@ async function route(state: DemoState, path: string, method: string, body: Body,
     }
     if (action === 'photos') {
       const people = (params.get('people') || '').split(',').filter(Boolean), filter = params.get('filter'), query = (params.get('q') || '').toLowerCase();
-      let items = photos.filter(photo => {
+      const trashed = params.get('trashed') === 'true';
+      let items = allPhotos.filter(photo => {
+        if (!!photo.trashed_at !== trashed) return false;
         if (params.get('mine') === 'true' && !photo.people.some(p => p.user_id === user.id)) return false;
         if (people.length && !(params.get('match') === 'any' ? people.some(id => photo.people.some(p => p.id === id)) : people.every(id => photo.people.some(p => p.id === id)))) return false;
         if (filter === 'solo' && photo.face_count !== 1 || filter === 'group' && photo.face_count < 2 || filter === 'no_faces' && photo.face_count !== 0 || filter === 'review' && photo.analysis_status !== 'failed' || filter === 'final' && !photo.final_version_id) return false;
@@ -101,7 +105,7 @@ async function route(state: DemoState, path: string, method: string, body: Body,
         if (params.get('date') && !photo.captured_at?.startsWith(params.get('date')!)) return false;
         return !query || `${photo.filename} ${photo.people.map(p => p.name).join(' ')} ${photo.tags.join(' ')} ${photo.note || ''}`.toLowerCase().includes(query);
       });
-      items = items.sort((a, b) => (params.get('sort') === 'newest' ? -1 : 1) * a.created_at.localeCompare(b.created_at));
+      items = items.sort((a, b) => trashed ? b.trashed_at!.localeCompare(a.trashed_at!) : (params.get('sort') === 'newest' ? -1 : 1) * a.created_at.localeCompare(b.created_at));
       const page = Math.max(1, Number(params.get('page') || 1)), pageSize = 24;
       return {items: items.slice((page - 1) * pageSize, page * pageSize).map(photoView), total: items.length, page, page_size: pageSize, stats: stats(photos)};
     }
@@ -114,6 +118,12 @@ async function route(state: DemoState, path: string, method: string, body: Body,
   if (resource === 'photos') {
     const photo = requireValue(state.photos.find(p => p.id === id), '사진을 찾지 못했어요.');
     const album = requireValue(state.albums.find(a => a.id === photo.album_id && a.members.some(m => m.id === user.id)), '앨범 멤버를 선택해 주세요.');
+    if ((action === 'trash' || action === 'restore') && method === 'POST') {
+      if (photo.uploader_id !== user.id) owner(album, user.id);
+      photo.trashed_at = action === 'trash' ? photo.trashed_at || now() : null;
+      return photoView(photo);
+    }
+    if (photo.trashed_at) throw new DemoError('휴지통에 있는 사진이에요. 복원한 뒤 다시 사용할 수 있어요.', 409);
     if (!action) {
       if (method === 'DELETE') { if (photo.uploader_id !== user.id) owner(album, user.id); state.photos = state.photos.filter(p => p.id !== id); state.notices = state.notices.filter(n => n.photo_id !== id); return {ok: true}; }
       if (method === 'PATCH') { for (const key of ['note', 'purpose', 'selected'] as const) if (body[key] !== undefined) Object.assign(photo, {[key]: body[key]}); }
@@ -132,7 +142,7 @@ async function route(state: DemoState, path: string, method: string, body: Body,
     if (action === 'reanalyze') throw new DemoError('체험 사이트에서는 자동 분석을 실행하지 않아요. 인물을 직접 지정해 주세요.');
   }
   if (resource === 'versions') {
-    const photo = requireValue(state.photos.find(p => p.versions?.some(v => v.id === id)), '보정본을 찾지 못했어요.');
+    const photo = requireValue(state.photos.find(p => !p.trashed_at && p.versions?.some(v => v.id === id)), '보정본을 찾지 못했어요.');
     const album = requireValue(state.albums.find(a => a.id === photo.album_id && a.members.some(m => m.id === user.id)), '앨범 멤버를 선택해 주세요.');
     const version = photo.versions!.find(v => v.id === id)!;
     if (action === 'request-review') {

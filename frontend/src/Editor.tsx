@@ -146,7 +146,7 @@ export default function Editor({ photoId, album, user, onClose, onChanged, onDel
     setBusy(true); setDeleting(true); setDeleteError(null);
     try {
       await client.cancelQueries({ queryKey: ['photo', photoId], exact: true });
-      await remove(`/photos/${photoId}`);
+      await post(`/photos/${photoId}/trash`);
     } catch (cause) {
       busyRef.current = false; deletingRef.current = false;
       setBusy(false); setDeleting(false); setDeleteError(cause as Error);
@@ -156,7 +156,7 @@ export default function Editor({ photoId, album, user, onClose, onChanged, onDel
     client.removeQueries({ queryKey: ['photo', photoId], exact: true });
     onClose();
     onDeleted?.(photoId);
-    for (const key of ['photos', 'albums', 'album', 'board', 'recommendations', 'notifications', 'groups']) {
+    for (const key of ['photos', 'albums', 'album', 'board', 'recommendations', 'notifications', 'groups', 'trash', 'analysis-status']) {
       void client.invalidateQueries({ queryKey: [key] });
     }
   }
@@ -260,13 +260,13 @@ export default function Editor({ photoId, album, user, onClose, onChanged, onDel
             <h3 className="editor-small-heading">태그</h3><div className="editor-tag-list">{photo.tags.length ? photo.tags.map(tag => <span key={tag}>#{tag}</span>) : <p className="editor-help">분석된 키워드가 없어요.</p>}</div>
             <form className="editor-note-form" onSubmit={event => { event.preventDefault(); void act(() => patch(`/photos/${photoId}`, { note, purpose }), '메모와 사진 용도를 저장했어요.'); }}><label htmlFor="photo-purpose">사진 용도<select id="photo-purpose" value={purpose} onChange={event => setPurpose(event.target.value)}><option value="undecided">아직 정하지 않았어요</option><option value="share">함께 공유하기</option><option value="print">인화하기</option><option value="keep">소중히 보관하기</option><option value="social">SNS에 게시하기</option><option value="profile">프로필 사진</option><option value="memory">추억으로 남기기</option><option value="exclude">게시하지 않기</option>{["게시용", "인화용", "보관용", "게시 제외"].includes(purpose) && <option value={purpose}>{purpose}</option>}</select></label><label htmlFor="photo-note">메모<textarea id="photo-note" rows={3} maxLength={2000} value={note} onChange={event => setNote(event.target.value)} placeholder="이 사진에 대한 메모"/></label><button className="editor-button full" disabled={busy} type="submit">사진 정보 저장</button></form>
             {canDelete && <section className="editor-delete-section" aria-labelledby="editor-delete-heading">
-              <div><h3 id="editor-delete-heading">사진 삭제</h3><p>사진을 올린 멤버와 앨범 소유자만 삭제할 수 있어요.</p></div>
-              {!deleteOpen ? <button className="editor-button danger full" disabled={busy} onClick={() => { setDeleteOpen(true); setDeleteConfirmed(false); setDeleteError(null); }}><Trash2 size={16}/>사진 삭제</button> : <div className="editor-delete-confirm">
-                <p><strong>이 사진을 모든 멤버의 앨범에서 영구 삭제해요.</strong> 원본, 모든 보정본과 최종본, 승인 기록, 댓글이 함께 삭제되며 되돌릴 수 없어요.</p>
-                <label><input type="checkbox" checked={deleteConfirmed} disabled={deleting} onChange={event => setDeleteConfirmed(event.target.checked)}/><span>모든 멤버에게서 삭제되며 되돌릴 수 없다는 점을 확인했어요.</span></label>
+              <div><h3 id="editor-delete-heading">휴지통으로 이동</h3><p>사진을 올린 멤버와 앨범 소유자만 이동할 수 있어요.</p></div>
+              {!deleteOpen ? <button className="editor-button danger full" disabled={busy} onClick={() => { setDeleteOpen(true); setDeleteConfirmed(false); setDeleteError(null); }}><Trash2 size={16}/>휴지통으로 이동</button> : <div className="editor-delete-confirm">
+                <p><strong>이 사진을 앨범의 휴지통으로 이동해요.</strong> 모든 멤버의 사진 목록에서 숨겨지며, 원본과 보정 기록은 보관돼요. 휴지통에서 복원할 수 있어요.</p>
+                <label><input type="checkbox" checked={deleteConfirmed} disabled={deleting} onChange={event => setDeleteConfirmed(event.target.checked)}/><span>모든 멤버의 사진 목록에서 숨겨지는 점을 확인했어요.</span></label>
                 {deleteError && <ErrorBox error={deleteError}/>}
-                <div className="editor-delete-actions"><button className="editor-button" disabled={deleting} onClick={() => { setDeleteOpen(false); setDeleteConfirmed(false); setDeleteError(null); }}>취소</button><button className="editor-button danger" disabled={busy || !deleteConfirmed} onClick={() => void deletePhoto()}>{deleting ? <LoaderCircle className="spin" size={16}/> : <Trash2 size={16}/>}사진 영구 삭제</button></div>
-                {deleting && <p className="editor-delete-status" role="status">사진과 연결된 기록을 삭제하고 있어요.</p>}
+                <div className="editor-delete-actions"><button className="editor-button" disabled={deleting} onClick={() => { setDeleteOpen(false); setDeleteConfirmed(false); setDeleteError(null); }}>취소</button><button className="editor-button danger" disabled={busy || !deleteConfirmed} onClick={() => void deletePhoto()}>{deleting ? <LoaderCircle className="spin" size={16}/> : <Trash2 size={16}/>}이동하기</button></div>
+                {deleting && <p className="editor-delete-status" role="status">사진을 휴지통으로 이동하고 있어요.</p>}
               </div>}
             </section>}
           </>}

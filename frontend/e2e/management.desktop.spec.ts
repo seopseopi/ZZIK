@@ -79,15 +79,17 @@ test('album settings, analysis recovery, photo deletion and member exit stay con
     await page.getByRole('button', { name: '관리검증.jpg 보정하기', exact: true }).click();
     const editor = page.getByRole('dialog', { name: '사진 보정 및 함께 고르기' });
     await editor.getByRole('navigation', { name: '사진 상세 메뉴' }).getByRole('button', { name: '사진 정보', exact: true }).click();
-    await editor.getByRole('button', { name: '사진 삭제', exact: true }).click();
-    await expect(editor.getByRole('button', { name: '사진 영구 삭제', exact: true })).toBeDisabled();
-    await editor.getByRole('checkbox', { name: '모든 멤버에게서 삭제되며 되돌릴 수 없다는 점을 확인했어요.' }).check();
-    await editor.getByRole('button', { name: '사진 영구 삭제', exact: true }).click();
+    await editor.getByRole('button', { name: '휴지통으로 이동', exact: true }).click();
+    await expect(editor.getByRole('button', { name: '이동하기', exact: true })).toBeDisabled();
+    await editor.getByRole('checkbox', { name: '모든 멤버의 사진 목록에서 숨겨지는 점을 확인했어요.' }).check();
+    await editor.getByRole('button', { name: '이동하기', exact: true }).click();
     await expect(editor).not.toBeVisible();
     await expect(page.locator('.photo-card')).toHaveCount(0);
     await expect(page.locator('.selection-bar')).toHaveCount(0);
     const photoResponse = await context.request.get(`/api/photos/${photo.id}`);
-    expect(photoResponse.status()).toBe(404);
+    expect(photoResponse.status()).toBe(409);
+    const trashResponse = await api(context, `/albums/${albumId}/photos?trashed=true`);
+    expect((await trashResponse.json()).items.map((item: {id:string}) => item.id)).toContain(photo.id);
 
     await page.getByRole('button', { name: '앨범 설정', exact: true }).click();
     settings = page.getByRole('dialog', { name: '앨범 설정', exact: true });

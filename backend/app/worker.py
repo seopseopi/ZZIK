@@ -31,12 +31,14 @@ def claim_job() -> tuple[str, str] | None:
     cutoff = current - timedelta(seconds=settings.worker_lease_seconds)
     eligible = or_(and_(AnalysisJob.status == 'pending', AnalysisJob.available_at <= current),
                    and_(AnalysisJob.status == 'processing', AnalysisJob.locked_at < cutoff))
+    active_photo = AnalysisJob.photo_id.in_(select(Photo.id).where(Photo.trashed_at.is_(None)))
     with SessionLocal() as db:
         candidates = db.execute(select(AnalysisJob.id, AnalysisJob.attempts, AnalysisJob.photo_id)
-                                .where(eligible).order_by(AnalysisJob.available_at).limit(30)).all()
+                                .join(Photo, Photo.id == AnalysisJob.photo_id)
+                                .where(eligible, Photo.trashed_at.is_(None)).order_by(AnalysisJob.available_at).limit(30)).all()
         for job_id, attempts, photo_id in candidates:
             if attempts >= settings.worker_max_attempts:
-                changed = db.execute(update(AnalysisJob).where(AnalysisJob.id == job_id, eligible)
+                changed = db.execute(update(AnalysisJob).where(AnalysisJob.id == job_id, eligible, active_photo)
                                      .values(status='failed', error='WORKER_LEASE_EXHAUSTED: 작업 실행 횟수를 초과했어요.',
                                              locked_by=None, locked_at=None, finished_at=current)).rowcount
                 db.commit()
@@ -52,7 +54,7 @@ def claim_job() -> tuple[str, str] | None:
                                 photo_db.commit()
                 continue
             token = str(uuid.uuid4())
-            changed = db.execute(update(AnalysisJob).where(AnalysisJob.id == job_id, eligible, AnalysisJob.attempts == attempts)
+            changed = db.execute(update(AnalysisJob).where(AnalysisJob.id == job_id, eligible, active_photo, AnalysisJob.attempts == attempts)
                                  .values(status='processing', attempts=attempts + 1, locked_at=current,
                                          locked_by=token, error=None, finished_at=None)).rowcount
             db.commit()
