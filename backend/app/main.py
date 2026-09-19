@@ -424,9 +424,9 @@ def upload(album_id:str,file:UploadFile=File(...),request_id:str=Form(...,min_le
 def list_photos(album_id:str,page:int=Query(1,ge=1),page_size:int=Query(40,ge=1,le=100),
                 filter:Literal['all','mine','solo','group','no_faces','review','final']='all',people:str='',
                 match:Literal['all','any']='all',tag:str='',q:str='',mine:bool=False,sort:Literal['newest','oldest','captured']='newest',date:str='',
-                user=Depends(auth),db:DBSession=Depends(get_db)):
+                trashed:bool=False,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
-    query=select(Photo).where(Photo.album_id==album_id)
+    query=select(Photo).where(Photo.album_id==album_id,Photo.trashed_at.is_not(None) if trashed else Photo.trashed_at.is_(None))
     included=select(PhotoPerson.photo_id).where(PhotoPerson.excluded==False)
     if filter=='mine' or mine:
         ids=select(Person.id).where(Person.album_id==album_id,Person.user_id==user.id)
@@ -460,9 +460,10 @@ def list_photos(album_id:str,page:int=Query(1,ge=1),page_size:int=Query(40,ge=1,
         query=query.where(Photo.captured_at.startswith(date))
     total=db.scalar(select(func.count()).select_from(query.subquery()))
     order=Photo.created_at.asc() if sort=='oldest' else Photo.captured_at.desc().nulls_last() if sort=='captured' else Photo.created_at.desc()
+    if trashed: order=Photo.trashed_at.desc()
     rows=db.scalars(query.order_by(order,Photo.id).offset((page-1)*page_size).limit(page_size)).all()
     stats={status:0 for status in ['pending','processing','completed','failed']}
-    stats.update(dict(db.execute(select(Photo.analysis_status,func.count()).where(Photo.album_id==album_id).group_by(Photo.analysis_status)).all()))
+    stats.update(dict(db.execute(select(Photo.analysis_status,func.count()).where(Photo.album_id==album_id,Photo.trashed_at.is_(None)).group_by(Photo.analysis_status)).all()))
     return {'items':[photo_dict(db,p) for p in rows],'total':total,'page':page,'page_size':page_size,'stats':stats}
 
 
@@ -489,6 +490,24 @@ def delete_photo(photo_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     db.commit()
     drain_cleanup()
     return {'ok':True}
+
+
+@app.post('/api/photos/{photo_id}/trash')
+def trash_photo(photo_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
+    p=get_photo(db,photo_id,user,lock=True,include_trashed=True)
+    if p.uploader_id!=user.id: membership(db,p.album_id,user,owner=True)
+    if p.trashed_at is None: p.trashed_at=now()
+    db.commit()
+    return photo_dict(db,p)
+
+
+@app.post('/api/photos/{photo_id}/restore')
+def restore_photo(photo_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
+    p=get_photo(db,photo_id,user,lock=True,include_trashed=True)
+    if p.uploader_id!=user.id: membership(db,p.album_id,user,owner=True)
+    p.trashed_at=None
+    db.commit()
+    return photo_dict(db,p)
 
 
 @app.put('/api/photos/{photo_id}/people')
@@ -542,16 +561,16 @@ def reanalyze(photo_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
 def album_analysis_status(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     stats={status:0 for status in ['pending','processing','completed','failed']}
-    stats.update(dict(db.execute(select(Photo.analysis_status,func.count()).where(Photo.album_id==album_id)
+    stats.update(dict(db.execute(select(Photo.analysis_status,func.count()).where(Photo.album_id==album_id,Photo.trashed_at.is_(None))
                                  .group_by(Photo.analysis_status)).all()))
     # These are accumulated run totals, not unique photo counts or wall-clock duration.
     recorded_runs,calls,elapsed_ms=db.execute(select(func.count(AnalysisRun.id),func.coalesce(func.sum(AnalysisRun.calls),0),
         func.coalesce(func.sum(AnalysisRun.elapsed_ms),0)).join(Photo,Photo.id==AnalysisRun.photo_id)
-        .where(Photo.album_id==album_id)).one()
-    failures=db.execute(select(Photo.id,Photo.filename,Photo.analysis_error).where(Photo.album_id==album_id,Photo.analysis_status=='failed')
+        .where(Photo.album_id==album_id,Photo.trashed_at.is_(None))).one()
+    failures=db.execute(select(Photo.id,Photo.filename,Photo.analysis_error).where(Photo.album_id==album_id,Photo.trashed_at.is_(None),Photo.analysis_status=='failed')
                         .order_by(Photo.created_at.desc(),Photo.id).limit(20)).all()
     oldest_pending_at=db.scalar(select(func.min(AnalysisJob.available_at)).join(Photo,Photo.id==AnalysisJob.photo_id)
-                                .where(Photo.album_id==album_id,AnalysisJob.status=='pending'))
+                                .where(Photo.album_id==album_id,Photo.trashed_at.is_(None),AnalysisJob.status=='pending'))
     return {'provider':settings.face_analysis_provider,'mode':'sample' if settings.face_analysis_provider=='fixture' else 'live',
             'stats':stats,'total':sum(stats.values()),'recorded_runs':recorded_runs,'calls':calls,'elapsed_ms':elapsed_ms,
             'failures':[{'photo_id':photo_id,'filename':filename,'error':error} for photo_id,filename,error in failures],
@@ -561,7 +580,7 @@ def album_analysis_status(album_id:str,user=Depends(auth),db:DBSession=Depends(g
 @app.post('/api/albums/{album_id}/reanalyze-failed')
 def reanalyze_album_failures(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
-    photos=db.scalars(select(Photo).where(Photo.album_id==album_id,Photo.analysis_status=='failed')
+    photos=db.scalars(select(Photo).where(Photo.album_id==album_id,Photo.trashed_at.is_(None),Photo.analysis_status=='failed')
                       .order_by(Photo.id).with_for_update().execution_options(populate_existing=True)).all()
     queued=sum(queue_failed_analysis(db,photo) for photo in photos)
     db.commit()
@@ -570,7 +589,7 @@ def reanalyze_album_failures(album_id:str,user=Depends(auth),db:DBSession=Depend
 
 @app.get('/api/photos/{photo_id}/file')
 def photo_file(photo_id:str,kind:Literal['original','thumbnail','display']='display',download:bool=False,user=Depends(auth),db:DBSession=Depends(get_db)):
-    p=get_photo(db,photo_id,user)
+    p=get_photo(db,photo_id,user,include_trashed=True)
     key=getattr(p,kind+'_key')
     return stored_file(key,p.mime if kind=='original' else 'image/jpeg',p.filename if download else None)
 
@@ -699,7 +718,7 @@ def add_comment(version_id:str,body:CommentCreate,user=Depends(auth),db:DBSessio
 def board(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
     result={status:[] for status in ['selection','editing','review','final']}
-    for p in db.scalars(select(Photo).where(Photo.album_id==album_id).order_by(Photo.created_at.desc())):
+    for p in db.scalars(select(Photo).where(Photo.album_id==album_id,Photo.trashed_at.is_(None)).order_by(Photo.created_at.desc())):
         item=photo_dict(db,p)
         result[item['board_status']].append(item)
     return result
@@ -708,7 +727,7 @@ def board(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
 @app.get('/api/albums/{album_id}/recommendations')
 def recommendations(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)):
     membership(db,album_id,user)
-    photos=db.scalars(select(Photo).where(Photo.album_id==album_id).order_by(Photo.captured_at,Photo.id)).all()
+    photos=db.scalars(select(Photo).where(Photo.album_id==album_id,Photo.trashed_at.is_(None)).order_by(Photo.captured_at,Photo.id)).all()
     rows=[dict(photo_dict(db,p),sha256=p.original_hash,faces=p.faces) for p in photos]
     groups=similar_groups(rows)
     for group in groups:
@@ -718,7 +737,7 @@ def recommendations(album_id:str,user=Depends(auth),db:DBSession=Depends(get_db)
 
 @app.get('/api/notifications')
 def notifications(user=Depends(auth),db:DBSession=Depends(get_db)):
-    rows=db.scalars(select(Notification).join(AlbumMember,and_(AlbumMember.album_id==Notification.album_id,AlbumMember.user_id==user.id)).where(Notification.user_id==user.id).order_by(Notification.created_at.desc()).limit(200)).all()
+    rows=db.scalars(select(Notification).join(AlbumMember,and_(AlbumMember.album_id==Notification.album_id,AlbumMember.user_id==user.id)).where(Notification.user_id==user.id,or_(Notification.photo_id.is_(None),Notification.photo_id.in_(select(Photo.id).where(Photo.trashed_at.is_(None))))).order_by(Notification.created_at.desc()).limit(200)).all()
     items=[{key:getattr(n,key) for key in ['id','album_id','photo_id','version_id','kind','message','read','created_at']} for n in rows]
     return {'items':items,'total':len(items)}
 
@@ -734,7 +753,7 @@ def read_notification(notification_id:str,user=Depends(auth),db:DBSession=Depend
 
 
 def group_dict(db,g):
-    faces=db.scalars(select(GroupFace).where(GroupFace.group_id==g.id).order_by(GroupFace.id)).all()
+    faces=db.scalars(select(GroupFace).join(Photo,Photo.id==GroupFace.photo_id).where(GroupFace.group_id==g.id,Photo.trashed_at.is_(None)).order_by(GroupFace.id)).all()
     return {'id':g.id,'name':g.name,'person_id':g.person_id,'album_id':g.album_id,'face_count':len(faces),
             'faces':[{'id':f.id,'photo_id':f.photo_id,'box':f.box,'similarity':f.similarity,'thumbnail_url':f'/api/photos/{f.photo_id}/file?kind=thumbnail'} for f in faces]}
 
@@ -759,7 +778,7 @@ def analyze_face_groups(album_id:str,user=Depends(auth),db:DBSession=Depends(get
     membership(db,album_id,user)
     if settings.face_analysis_provider!='rekognition': fail(409,'GROUPING_UNAVAILABLE','자동 인물 그룹은 실제 Rekognition 연결 후 사용할 수 있어요.')
     grouped=select(GroupFace.photo_id)
-    photos=db.scalars(select(Photo).where(Photo.album_id==album_id,Photo.id.not_in(grouped)).order_by(Photo.id).with_for_update()).all()
+    photos=db.scalars(select(Photo).where(Photo.album_id==album_id,Photo.trashed_at.is_(None),Photo.id.not_in(grouped)).order_by(Photo.id).with_for_update()).all()
     for p in photos:
         p.analysis_metadata=dict(p.analysis_metadata,grouping_requested=True)
         job=db.scalar(select(AnalysisJob).where(AnalysisJob.photo_id==p.id).with_for_update())
@@ -823,7 +842,7 @@ def merge_groups(body:GroupMerge,user=Depends(auth),db:DBSession=Depends(get_db)
 @app.post('/api/face-groups/{group_id}/split',status_code=201)
 def split_group(group_id:str,body:GroupSplit,user=Depends(auth),db:DBSession=Depends(get_db)):
     g=get_group(db,group_id,user)
-    faces=db.scalars(select(GroupFace).where(GroupFace.group_id==g.id)).all()
+    faces=db.scalars(select(GroupFace).join(Photo,Photo.id==GroupFace.photo_id).where(GroupFace.group_id==g.id,Photo.trashed_at.is_(None))).all()
     selected=set(body.face_ids)
     if not selected.issubset({f.id for f in faces}) or len(selected)==len(faces): fail(422,'INVALID_SPLIT','기존 그룹에 남길 얼굴과 분리할 얼굴을 나누어 선택해 주세요.')
     new=FaceGroup(album_id=g.album_id,name='새 인물 그룹')
@@ -845,7 +864,7 @@ def album_download(album_id:str,photo_ids:str,user=Depends(auth),db:DBSession=De
     membership(db,album_id,user)
     ids=list(dict.fromkeys(pid for pid in photo_ids.split(',') if pid))
     if not 1<=len(ids)<=100: fail(422,'INVALID_DOWNLOAD_SELECTION','1–100장의 사진을 선택해 주세요.')
-    photos=db.scalars(select(Photo).where(Photo.album_id==album_id,Photo.id.in_(ids))).all()
+    photos=db.scalars(select(Photo).where(Photo.album_id==album_id,Photo.trashed_at.is_(None),Photo.id.in_(ids))).all()
     if len(photos)!=len(ids): fail(404,'PHOTO_NOT_FOUND','선택한 사진 중 접근할 수 없는 사진이 있어요.')
     if sum(p.byte_size for p in photos)>512*1024*1024: fail(413,'DOWNLOAD_TOO_LARGE','한 번에 512MB까지 내려받을 수 있어요. 사진을 나누어 선택해 주세요.')
     output=tempfile.SpooledTemporaryFile(max_size=8*1024*1024)

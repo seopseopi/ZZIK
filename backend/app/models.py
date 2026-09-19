@@ -68,6 +68,7 @@ class Photo(Base):
     byte_size: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
     captured_at: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    trashed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     capture_timezone: Mapped[str | None] = mapped_column(String(80), nullable=True)
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)

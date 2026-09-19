@@ -54,7 +54,7 @@ def membership(db, album_id, user, owner=False, exclusive=False):
     return album
 
 
-def get_photo(db, photo_id, user, lock=False):
+def get_photo(db, photo_id, user, lock=False, include_trashed=False):
     album_id=db.scalar(select(Photo.album_id).where(Photo.id==photo_id))
     if not album_id: fail(404,'PHOTO_NOT_FOUND','사진을 찾을 수 없어요.')
     membership(db,album_id,user)
@@ -62,6 +62,8 @@ def get_photo(db, photo_id, user, lock=False):
     if lock: query=query.with_for_update()
     photo=db.scalar(query.execution_options(populate_existing=True))
     if not photo: fail(404,'PHOTO_NOT_FOUND','사진을 찾을 수 없어요.')
+    if photo.trashed_at and not include_trashed:
+        fail(409,'PHOTO_TRASHED','휴지통에 있는 사진이에요. 복원한 뒤 다시 사용할 수 있어요.')
     return photo
 
 def get_version(db, version_id, user, lock=False):
@@ -115,6 +117,7 @@ def board_status(db,p):
 def photo_dict(db,p,detail=False):
     links=db.execute(select(Person,PhotoPerson.source).join(PhotoPerson,PhotoPerson.person_id==Person.id).where(PhotoPerson.photo_id==p.id,PhotoPerson.excluded==False)).all()
     result={'id':p.id,'album_id':p.album_id,'uploader_id':p.uploader_id,'filename':p.filename,'thumbnail_url':f'/api/photos/{p.id}/file?kind=thumbnail','display_url':f'/api/photos/{p.id}/file?kind=display','original_url':f'/api/photos/{p.id}/file?kind=original','width':p.width,'height':p.height,'created_at':p.created_at,'captured_at':p.captured_at,'capture_timezone':p.capture_timezone,'latitude':p.latitude,'longitude':p.longitude,'location_name':p.location_name,'analysis_status':p.analysis_status,'analysis_error':p.analysis_error,'analysis_provider':p.analysis_provider,'analysis_mode':p.analysis_mode,'analysis_metadata':p.analysis_metadata,'face_count':p.face_count,'unknown_faces':p.unknown_faces,'people':[dict(person_dict(person),source=source) for person,source in links],'tags':p.tags,'purpose':p.purpose,'selected':p.selected,'note':p.note,'final_version_id':p.final_version_id,'board_status':board_status(db,p),'quality':p.quality}
+    result['trashed_at'] = utc(p.trashed_at)
     if detail:
         result['faces']=p.faces
         result['versions']=[version_dict(db,v,p) for v in db.scalars(select(Version).where(Version.photo_id==p.id).order_by(Version.number.desc()))]
@@ -122,8 +125,8 @@ def photo_dict(db,p,detail=False):
 
 def album_dict(db,a):
     members=db.execute(select(User,AlbumMember.role).join(AlbumMember,AlbumMember.user_id==User.id).where(AlbumMember.album_id==a.id).order_by(AlbumMember.joined_at)).all()
-    cover=db.scalar(select(Photo.id).where(Photo.album_id==a.id).order_by(Photo.face_count.desc(),Photo.created_at).limit(1))
-    count=db.scalar(select(func.count()).select_from(Photo).where(Photo.album_id==a.id))
+    cover=db.scalar(select(Photo.id).where(Photo.album_id==a.id,Photo.trashed_at.is_(None)).order_by(Photo.face_count.desc(),Photo.created_at).limit(1))
+    count=db.scalar(select(func.count()).select_from(Photo).where(Photo.album_id==a.id,Photo.trashed_at.is_(None)))
     return {'id':a.id,'name':a.name,'description':a.description,'timezone':a.timezone,'owner_id':a.owner_id,'invite_code':a.invite_code,'photo_count':count,'member_count':len(members),'cover_url':f'/api/photos/{cover}/file?kind=display' if cover else None,'created_at':a.created_at,'members':[dict(user_dict(u),role=role) for u,role in members],'people':[person_dict(p) for p in db.scalars(select(Person).where(Person.album_id==a.id).order_by(Person.created_at))]}
 
 def notify_after_commit(album_id,actor_id,kind,message,photo_id=None,version_id=None,target_ids=None):

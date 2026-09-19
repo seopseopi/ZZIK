@@ -1,0 +1,56 @@
+import { test, expect } from '@playwright/test';
+import { noHorizontalOverflow } from '../e2e/helpers';
+
+test('trashed photos persist, stay out of the library and board, and restore with edits', async ({page}) => {
+  await page.goto('./');
+  await expect(page.locator('.photo-card')).toHaveCount(12);
+  await page.getByRole('button', {name: 'JEJU_0003.jpg 보정하기', exact: true}).click();
+  const editor = page.getByRole('dialog', {name: '사진 보정 및 함께 고르기'});
+  await editor.getByLabel('새 보정본 이름').fill('휴지통에서도 보관할 보정본');
+  await editor.getByRole('slider', {name: '밝기'}).press('ArrowRight');
+  await editor.getByRole('button', {name: '새 보정본 저장', exact: true}).click();
+  await expect(editor.getByRole('heading', {name: '휴지통에서도 보관할 보정본', exact: true})).toBeVisible();
+  await page.getByRole('navigation', {name: '사진 상세 메뉴'}).getByRole('button', {name: '사진 정보', exact: true}).click();
+  await editor.getByRole('button', {name: '휴지통으로 이동', exact: true}).click();
+  await editor.getByRole('checkbox', {name: '모든 멤버의 사진 목록에서 숨겨지는 점을 확인했어요.'}).check();
+  await editor.getByRole('button', {name: '이동하기', exact: true}).click();
+  await expect(editor).not.toBeVisible();
+  await expect(page.locator('.photo-card')).toHaveCount(11);
+  await expect(page.locator('.header-meta')).toContainText('사진 11장');
+  await page.getByRole('navigation', {name: '주 메뉴', exact: true}).getByRole('button', {name: '함께 고르기', exact: true}).click();
+  await expect(page.locator('.board-card').filter({hasText: 'JEJU_0003.jpg'})).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('.photo-card')).toHaveCount(11);
+  await page.getByRole('navigation', {name: '주 메뉴', exact: true}).getByRole('button', {name: '휴지통', exact: true}).click();
+  await expect(page.locator('.trash-card')).toHaveCount(1);
+  await page.getByRole('button', {name: 'JEJU_0003.jpg 크게 보기', exact: true}).click();
+  const preview = page.getByRole('dialog', {name: 'JEJU_0003.jpg'});
+  await expect(preview.locator('img')).toBeVisible();
+  await preview.getByRole('button', {name: '닫기', exact: true}).click();
+  await page.getByRole('button', {name: 'JEJU_0003.jpg 복원', exact: true}).click();
+  await expect(page.getByRole('heading', {name: '휴지통이 비어 있어요'})).toBeVisible();
+  await page.getByRole('navigation', {name: '주 메뉴', exact: true}).getByRole('button', {name: /모든 사진/}).click();
+  await expect(page.locator('.photo-card')).toHaveCount(12);
+  await page.getByRole('button', {name: 'JEJU_0003.jpg 보정하기', exact: true}).click();
+  await expect(editor.locator('.editor-version').filter({hasText: '휴지통에서도 보관할 보정본'})).toBeVisible();
+});
+
+test('mobile trash respects album scope and only owners or uploaders may move and restore', async ({page}) => {
+  await page.goto('./');
+  await page.getByRole('button', {name: 'JEJU_0001.jpg 사진 정보', exact: true}).click();
+  await page.locator('.photo-info').getByRole('button', {name: '휴지통으로 이동', exact: true}).click();
+  await expect(page.locator('.photo-card')).toHaveCount(11);
+  await page.getByLabel('체험 인물').selectOption('minji');
+  await expect(page.locator('.photo-info').getByRole('button', {name: '휴지통으로 이동', exact: true})).toHaveCount(0);
+  await page.getByRole('button', {name: '사진 정보 닫기', exact: true}).click();
+  await page.setViewportSize({width:390, height:844});
+  const nav = page.getByRole('navigation', {name: '모바일 메뉴'});
+  await nav.getByRole('button', {name:'휴지통', exact:true}).click();
+  await expect(page.locator('.trash-card')).toHaveCount(1);
+  await expect(page.getByRole('button', {name:'JEJU_0001.jpg 복원', exact:true})).toHaveCount(0);
+  await noHorizontalOverflow(page);
+  await nav.getByRole('button', {name:'전체 앨범', exact:true}).click();
+  await page.locator('.album-card').filter({hasText:'부산 주말'}).click();
+  await nav.getByRole('button', {name:'휴지통', exact:true}).click();
+  await expect(page.getByRole('heading', {name:'휴지통이 비어 있어요'})).toBeVisible();
+});

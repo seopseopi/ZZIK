@@ -459,3 +459,26 @@ img { max-width: 100%; }
   .login-form input { font-size: 16px; }
 }
 @media(prefers-reduced-motion:reduce) { *, *::before, *::after { scroll-behavior: auto!important; animation: none!important; transition: none!important; } }
+
+.trash-view h2 { display: flex; align-items: center; gap: 9px; }
+.trash-count { font-size: 14px; color: var(--muted); font-weight: 400; }
+.trash-view .section-heading p { margin: 10px 0 20px; line-height: 1.7; max-width: 680px; }
+.trash-search { display: grid; gap: 7px; max-width: 360px; margin-bottom: 24px; font-size: 12px; color: #646771; }
+.trash-search input { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; width: 100%; background: #fff; font-size: 16px; }
+.trash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; }
+.trash-card { min-width: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #fff; }
+.trash-preview { display: block; width: 100%; aspect-ratio: 4 / 3; overflow: hidden; background: #eee; }
+.trash-preview img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
+.trash-preview:hover img { transform: scale(1.03); }
+.trash-card-info { padding: 14px; display: grid; gap: 9px; }
+.trash-card-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.trash-card-info small { color: #777; font-size: 11px; }
+.trash-card-info .button { justify-self: start; }
+.trash-full-image { width: 100%; max-height: 65dvh; object-fit: contain; border-radius: 8px; }
+.trash-move { color: #a44632; }
+@media(max-width:700px) {
+  .trash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .trash-card-info { padding: 10px; }
+  .trash-card-info small { line-height: 1.5; }
+  .mobile-nav button { padding: 0 9px; }
+}
